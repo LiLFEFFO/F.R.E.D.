@@ -33,8 +33,13 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.use((_req, res) => {
+const distPath = path.join(__dirname, '..', '..', 'client', 'dist');
+app.use(express.static(distPath));
+app.get('/api/*', (_req, res) => {
   res.status(404).json({ error: 'Not found' });
+});
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 getDbAsync().then(() => {
