@@ -1,23 +1,20 @@
 import { v4 as uuidv4 } from 'uuid';
-import { getDb, saveDb } from '../database/schema';
+import { db } from '../database/schema';
 
-export function getPointsForPosition(scoringId: string, position: number): number {
-  const db = getDb();
-  const system = db.prepare('SELECT * FROM scoring_systems WHERE id = ?').get(scoringId) as any;
+export async function getPointsForPosition(scoringId: string, position: number): Promise<number> {
+  const system = await db.queryOne('SELECT * FROM scoring_systems WHERE id = $1', [scoringId]) as any;
   if (!system) return 0;
   const points = JSON.parse(system.position_points);
   return points[position - 1] || 0;
 }
 
-export function recalculateChampionship(championshipId: string): void {
-  const db = getDb();
-
-  const scoring = db.prepare('SELECT * FROM scoring_systems WHERE championship_id = ?').get(championshipId) as any;
+export async function recalculateChampionship(championshipId: string): Promise<void> {
+  const scoring = await db.queryOne('SELECT * FROM scoring_systems WHERE championship_id = $1', [championshipId]) as any;
   if (!scoring) return;
 
-  const drivers = db.prepare('SELECT * FROM drivers WHERE championship_id = ?').all(championshipId) as any[];
-  const teams = db.prepare('SELECT * FROM teams WHERE championship_id = ?').all(championshipId) as any[];
-  const races = db.prepare("SELECT * FROM races WHERE championship_id = ? AND status = ?").all(championshipId, 'completed') as any[];
+  const drivers = await db.query('SELECT * FROM drivers WHERE championship_id = $1', [championshipId]) as any[];
+  const teams = await db.query('SELECT * FROM teams WHERE championship_id = $1', [championshipId]) as any[];
+  const races = await db.query('SELECT * FROM races WHERE championship_id = $1 AND status = $2', [championshipId, 'completed']) as any[];
 
   const driverStats: Record<string, { points: number; wins: number; podiums: number; poles: number; fastestLaps: number; racesDone: number }> = {};
   const teamStats: Record<string, number> = {};
@@ -28,7 +25,7 @@ export function recalculateChampionship(championshipId: string): void {
   }
 
   for (const race of races) {
-    const results = db.prepare('SELECT * FROM race_results WHERE race_id = ? ORDER BY position ASC').all(race.id) as any[];
+    const results = await db.query('SELECT * FROM race_results WHERE race_id = $1 ORDER BY position ASC', [race.id]) as any[];
     for (const r of results) {
       const ds = driverStats[r.driver_id];
       if (!ds) continue;
@@ -39,7 +36,7 @@ export function recalculateChampionship(championshipId: string): void {
       if (r.pole_position) ds.poles += 1;
       if (r.fastest_lap) ds.fastestLaps += 1;
 
-      const driver = db.prepare('SELECT team_id FROM drivers WHERE id = ?').get(r.driver_id) as any;
+      const driver = await db.queryOne('SELECT team_id FROM drivers WHERE id = $1', [r.driver_id]) as any;
       if (driver?.team_id && teamStats[driver.team_id] !== undefined) {
         teamStats[driver.team_id] += r.points;
       }
@@ -50,41 +47,37 @@ export function recalculateChampionship(championshipId: string): void {
     .map(([id, stats]) => ({ id, ...stats }))
     .sort((a, b) => b.points - a.points);
 
-  const existing = db.prepare('SELECT driver_id, position FROM driver_standings WHERE championship_id = ?').all(championshipId) as any[];
+  const existing = await db.query('SELECT driver_id, position FROM driver_standings WHERE championship_id = $1', [championshipId]) as any[];
   const prevPositions: Record<string, number> = {};
   for (const e of existing) prevPositions[e.driver_id] = e.position;
 
-  db.prepare('DELETE FROM driver_standings WHERE championship_id = ?').run(championshipId);
+  await db.execute('DELETE FROM driver_standings WHERE championship_id = $1', [championshipId]);
 
-  const insertStanding = db.prepare(`
-    INSERT INTO driver_standings (id, championship_id, driver_id, points, wins, podiums, poles, fastest_laps, position, previous_position, races_done, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-  `);
-
-  sortedDrivers.forEach((d, idx) => {
+  for (let i = 0; i < sortedDrivers.length; i++) {
+    const d = sortedDrivers[i];
     const prev = prevPositions[d.id] || 0;
-    insertStanding.run(uuidv4(), championshipId, d.id, d.points, d.wins, d.podiums, d.poles, d.fastestLaps, idx + 1, prev, d.racesDone);
-  });
+    await db.execute(`
+      INSERT INTO driver_standings (id, championship_id, driver_id, points, wins, podiums, poles, fastest_laps, position, previous_position, races_done, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+    `, [uuidv4(), championshipId, d.id, d.points, d.wins, d.podiums, d.poles, d.fastestLaps, i + 1, prev, d.racesDone]);
+  }
 
   const sortedTeams = Object.entries(teamStats)
     .map(([id, points]) => ({ id, points }))
     .sort((a, b) => b.points - a.points);
 
-  const existingTeams = db.prepare('SELECT team_id, position FROM constructor_standings WHERE championship_id = ?').all(championshipId) as any[];
+  const existingTeams = await db.query('SELECT team_id, position FROM constructor_standings WHERE championship_id = $1', [championshipId]) as any[];
   const prevTeamPos: Record<string, number> = {};
   for (const e of existingTeams) prevTeamPos[e.team_id] = e.position;
 
-  db.prepare('DELETE FROM constructor_standings WHERE championship_id = ?').run(championshipId);
+  await db.execute('DELETE FROM constructor_standings WHERE championship_id = $1', [championshipId]);
 
-  const insertConstructor = db.prepare(`
-    INSERT INTO constructor_standings (id, championship_id, team_id, points, position, previous_position, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-  `);
-
-  sortedTeams.forEach((t, idx) => {
+  for (let i = 0; i < sortedTeams.length; i++) {
+    const t = sortedTeams[i];
     const prev = prevTeamPos[t.id] || 0;
-    insertConstructor.run(uuidv4(), championshipId, t.id, t.points, idx + 1, prev);
-  });
-
-  saveDb();
+    await db.execute(`
+      INSERT INTO constructor_standings (id, championship_id, team_id, points, position, previous_position, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    `, [uuidv4(), championshipId, t.id, t.points, i + 1, prev]);
+  }
 }

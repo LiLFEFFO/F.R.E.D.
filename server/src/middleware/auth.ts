@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { getDb } from '../database/schema';
+import { db } from '../database/schema';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fred-super-secret-key-2024';
 

@@ -76,7 +76,7 @@ export default function AdminChampionship() {
 
   const saveTeamEdit = async () => {
     if (!editingTeam) return;
-    await api.teams.update(editingTeam.id, editTeamForm);
+    await api.teams.update(editingTeam.id, { ...editTeamForm, reserve_driver_id: editTeamForm.reserve_driver_id || null });
     setEditingTeam(null);
     loadData();
   };
@@ -114,6 +114,7 @@ export default function AdminChampionship() {
           pole_position: !!r.pole_position,
           fastest_lap: !!r.fastest_lap,
           dnf: !!r.dnf,
+          present: r.present !== 0,
           qualifying_position: r.qualifying_position != null ? r.qualifying_position : '',
           penalties: r.penalties || '',
           notes: r.notes || '',
@@ -129,6 +130,7 @@ export default function AdminChampionship() {
           pole_position: false,
           fastest_lap: false,
           dnf: false,
+          present: true,
           qualifying_position: '',
           penalties: '',
           notes: '',
@@ -260,7 +262,7 @@ export default function AdminChampionship() {
             <div className="table-wrapper">
               <table>
                 <thead>
-                  <tr><th>Logo</th><th>Name</th><th>Color</th><th>Livery</th><th>Drivers</th><th></th></tr>
+                  <tr><th>Logo</th><th>Name</th><th>Color</th><th>Livery</th><th>Drivers</th><th>Reserve</th><th></th></tr>
                 </thead>
                 <tbody>
                   {teams.map((t: any) => (
@@ -280,6 +282,7 @@ export default function AdminChampionship() {
                         ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>—</span>}
                       </td>
                       <td>{t.driver_count || 0}</td>
+                      <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{t.reserve_driver_name || '—'}</td>
                       <td>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button className="btn btn-ghost btn-sm" onClick={() => { setEditingTeam(t); setEditTeamForm({ name: t.name, color: t.color, logo: t.logo || '', livery: t.livery || '', reserve_driver_id: t.reserve_driver_id || '' }); }}>Edit</button>
@@ -313,12 +316,20 @@ export default function AdminChampionship() {
                       {r.status === 'completed' ? 'Done' : r.status === 'in_progress' ? 'Live' : 'Scheduled'}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => openResultForm(r.id)} disabled={drivers.length === 0}>
-                      {r.status === 'completed' ? 'Edit results' : 'Enter results'}
-                    </button>
-                    <button className="btn btn-danger btn-sm" onClick={() => deleteRace(r.id)}>Delete</button>
-                  </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => openResultForm(r.id)} disabled={drivers.length === 0}>
+                        {r.status === 'completed' ? 'Edit results' : 'Enter results'}
+                      </button>
+                      {r.status === 'completed' && (
+                        <button className="btn btn-secondary btn-sm" onClick={async () => {
+                          if (confirm('Re-open this race? Results will be cleared.')) {
+                            await api.races.reopen(r.id);
+                            loadData();
+                          }
+                        }}>Re-open</button>
+                      )}
+                      <button className="btn btn-danger btn-sm" onClick={() => deleteRace(r.id)}>Delete</button>
+                    </div>
                 </div>
               ))}
             </div>
@@ -371,6 +382,15 @@ export default function AdminChampionship() {
               <input type="color" value={teamForm.color} onChange={e => setTeamForm(f => ({ ...f, color: e.target.value }))} style={{ height: 36, padding: 3 }} />
             </div>
             <div>
+              <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block', marginBottom: 4 }}>Reserve Driver</label>
+              <select value={teamForm.reserve_driver_id} onChange={e => setTeamForm(f => ({ ...f, reserve_driver_id: e.target.value }))}>
+                <option value="">No reserve</option>
+                {drivers.filter(d => !d.team_id || d.team_id === '').map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block', marginBottom: 4 }}>Logo</label>
               <input type="file" accept="image/*" onChange={async e => {
                 const f = e.target.files?.[0]; if (!f) return;
@@ -388,6 +408,15 @@ export default function AdminChampionship() {
             <div>
               <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block', marginBottom: 4 }}>Color</label>
               <input type="color" value={editTeamForm.color} onChange={e => setEditTeamForm(f => ({ ...f, color: e.target.value }))} style={{ height: 36, padding: 3 }} />
+            </div>
+            <div>
+              <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block', marginBottom: 4 }}>Reserve Driver</label>
+              <select value={editTeamForm.reserve_driver_id} onChange={e => setEditTeamForm(f => ({ ...f, reserve_driver_id: e.target.value }))}>
+                <option value="">No reserve</option>
+                {drivers.filter(d => !d.team_id || d.team_id === '').map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block', marginBottom: 4 }}>Logo</label>
@@ -482,67 +511,122 @@ export default function AdminChampionship() {
         {selectedRace && (
           <Modal onClose={() => setSelectedRace(null)} title="Enter Results" wide>
             <p style={{ color: 'var(--text-secondary)', marginBottom: 10, fontSize: '0.85rem' }}>
-              Set the finishing order and qualifying positions. Only one driver can have the fastest lap.
+              Drag drivers to reorder. Mark absent drivers for reserve substitution.
             </p>
-            <div className="table-wrapper" style={{ maxHeight: 400, overflowY: 'auto' }}>
-              <table>
-                <thead>
-                  <tr><th>Race Pos</th><th>Driver</th><th>Qualifying Pos</th><th>Pole</th><th>FL</th><th>DNF</th><th>Penalties</th></tr>
-                </thead>
-                <tbody>
-                  {resultEntries.sort((a, b) => a.position - b.position).map((entry, idx) => (
-                    <tr key={entry.driver_id}>
-                      <td>
-                        <input type="number" value={entry.position}
+            <div style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {resultEntries
+                .slice()
+                .sort((a, b) => a.position - b.position)
+                .map((entry, idx) => {
+                  const driver = drivers.find(d => d.id === entry.driver_id);
+                  const team = driver ? teams.find((t: any) => t.id === driver.team_id) : null;
+                  const reserveDriver = team ? drivers.find(d => d.id === team.reserve_driver_id) : null;
+                  return (
+                    <div
+                      key={entry.driver_id}
+                      draggable
+                      onDragStart={e => {
+                        e.dataTransfer.setData('text/plain', entry.driver_id);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                      onDrop={e => {
+                        e.preventDefault();
+                        const draggedId = e.dataTransfer.getData('text/plain');
+                        if (draggedId === entry.driver_id) return;
+                        setResultEntries((prev: any[]) => {
+                          const arr = [...prev];
+                          const draggedIdx = arr.findIndex(p => p.driver_id === draggedId);
+                          const targetIdx = arr.findIndex(p => p.driver_id === entry.driver_id);
+                          if (draggedIdx === -1 || targetIdx === -1) return prev;
+                          const [moved] = arr.splice(draggedIdx, 1);
+                          arr.splice(targetIdx, 0, moved);
+                          return arr.map((p, i) => ({ ...p, position: i + 1 }));
+                        });
+                      }}
+                      style={{
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '6px 10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        background: entry.dnf ? 'rgba(220,38,38,0.04)' : entry.present === false ? 'rgba(234,88,12,0.04)' : 'transparent',
+                        cursor: 'grab',
+                        fontSize: '0.85rem',
+                        opacity: entry.present === false ? 0.6 : 1,
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600, minWidth: 28, fontSize: '0.78rem' }}>
+                        P{entry.position}
+                        {entry.position === 1 && ' 🏆'}
+                      </span>
+                      <span style={{ color: team?.color || 'var(--text-muted)' }}>■</span>
+                      <span style={{ fontWeight: 500, flex: 1 }}>
+                        {driver?.name || entry.driver_id}
+                        {entry.present === false && reserveDriver && (
+                          <span style={{ color: 'var(--accent-orange)', fontSize: '0.75rem', marginLeft: 6 }}>
+                            → sost. da {reserveDriver.name}
+                          </span>
+                        )}
+                      </span>
+                      <label style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap' }}>
+                        <input type="checkbox" checked={entry.present !== false}
                           onChange={e => {
-                            const newPos = parseInt(e.target.value) || 1;
+                            const checked = e.target.checked;
                             setResultEntries((prev: any[]) =>
-                              prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, position: newPos } : p)
+                              prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, present: checked, dnf: checked ? p.dnf : false } : p)
                             );
-                          }}
-                          style={{ width: 50, padding: '4px 6px', fontSize: '0.85rem' }}
-                        />
-                      </td>
-                      <td style={{ fontSize: '0.85rem' }}>{drivers.find(d => d.id === entry.driver_id)?.name || entry.driver_id}</td>
-                      <td>
-                        <input type="number" value={entry.qualifying_position}
+                          }} />
+                        Presente
+                      </label>
+                      <label style={{ fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <input type="checkbox" checked={entry.pole_position}
+                          disabled={entry.present === false}
                           onChange={e => {
-                            const val = e.target.value;
                             setResultEntries((prev: any[]) =>
-                              prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, qualifying_position: val === '' ? '' : parseInt(val) || 1 } : p)
+                              prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, pole_position: e.target.checked } : p)
                             );
-                          }}
-                          style={{ width: 50, padding: '4px 6px', fontSize: '0.85rem' }}
-                          placeholder="—"
-                        />
-                      </td>
-                      <td><input type="checkbox" checked={entry.pole_position} onChange={e => {
-                        setResultEntries((prev: any[]) =>
-                          prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, pole_position: e.target.checked } : p)
-                        );
-                      }} /></td>
-                      <td>
+                          }} />
+                        Pole
+                      </label>
+                      <label style={{ fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: 2 }}>
                         <input type="radio" name={`fl-${selectedRace}`} checked={entry.fastest_lap}
+                          disabled={entry.present === false}
                           onChange={() => {
                             setResultEntries((prev: any[]) =>
                               prev.map((p: any) => ({ ...p, fastest_lap: p.driver_id === entry.driver_id }))
                             );
                           }} />
-                      </td>
-                      <td><input type="checkbox" checked={entry.dnf} onChange={e => {
-                        setResultEntries((prev: any[]) =>
-                          prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, dnf: e.target.checked } : p)
-                        );
-                      }} /></td>
-                      <td><input value={entry.penalties} onChange={e => {
+                        FL
+                      </label>
+                      <label style={{ fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <input type="checkbox" checked={entry.dnf}
+                          disabled={entry.present === false}
+                          onChange={e => {
+                            setResultEntries((prev: any[]) =>
+                              prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, dnf: e.target.checked } : p)
+                            );
+                          }} />
+                        DNF
+                      </label>
+                      <input type="number" value={entry.qualifying_position}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setResultEntries((prev: any[]) =>
+                            prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, qualifying_position: val === '' ? '' : parseInt(val) || 1 } : p)
+                          );
+                        }}
+                        style={{ width: 44, padding: '3px 4px', fontSize: '0.75rem' }}
+                        placeholder="QL" />
+                      <input value={entry.penalties} onChange={e => {
                         setResultEntries((prev: any[]) =>
                           prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, penalties: e.target.value } : p)
                         );
-                      }} style={{ width: 90, padding: '4px 6px', fontSize: '0.85rem' }} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      }} style={{ width: 70, padding: '3px 4px', fontSize: '0.75rem' }} placeholder="Pen." />
+                    </div>
+                  );
+                })}
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
               <button className="btn btn-ghost" onClick={() => setSelectedRace(null)}>Cancel</button>

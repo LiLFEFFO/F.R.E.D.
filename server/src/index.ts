@@ -1,7 +1,8 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { getDbAsync } from './database/schema';
+import { initSchema } from './database/schema';
 import authRoutes from './routes/auth';
 import championshipRoutes from './routes/championships';
 import driverRoutes from './routes/drivers';
@@ -42,7 +43,7 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-getDbAsync().then(() => {
+initSchema().then(() => {
   app.listen(PORT, () => {
     console.log(`F.R.E.D. API server running on http://localhost:${PORT}`);
   });

@@ -88,7 +88,7 @@ export default function RaceDetail() {
               <table>
                 <thead>
                   <tr>
-                    <th>Pos</th><th>Driver</th><th>No.</th><th>Team</th><th>Points</th><th>QL</th><th>Pole</th><th>FL</th><th>DNF</th><th>Penalties</th>
+                    <th>Pos</th><th>Driver</th><th>No.</th><th>Team</th><th>Points</th><th>QL</th><th>Pole</th><th>FL</th><th>DNF</th><th>Status</th><th>Penalties</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -108,6 +108,7 @@ export default function RaceDetail() {
                       <td>{r.pole_position ? '✓' : '—'}</td>
                       <td>{r.fastest_lap ? '✓' : '—'}</td>
                       <td>{r.dnf ? <span className="badge badge-red">DNF</span> : '—'}</td>
+                      <td>{r.present === 0 ? <span className="badge badge-orange">Assente</span> : <span className="badge badge-green">Presente</span>}</td>
                       <td style={{ color: 'var(--accent-red)', fontSize: '0.82rem' }}>{r.penalties || '—'}</td>
                     </tr>
                   ))}

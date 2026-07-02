@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import type { Championship, DriverStanding, ConstructorStanding, Race } from '../types';
+import type { Championship, DriverStanding, ConstructorStanding, Race, TitleScenariosResponse } from '../types';
 
 export default function ChampionshipDetail() {
   const { id } = useParams<{ id: string }>();
   const [champ, setChamp] = useState<Championship | null>(null);
   const [standings, setStandings] = useState<{ driver_standings: DriverStanding[]; constructor_standings: ConstructorStanding[] } | null>(null);
   const [races, setRaces] = useState<Race[]>([]);
+  const [scenarios, setScenarios] = useState<TitleScenariosResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'overview' | 'standings' | 'constructors' | 'calendar'>('overview');
+  const [tab, setTab] = useState<'overview' | 'standings' | 'constructors' | 'calendar' | 'title'>('overview');
 
   useEffect(() => {
     if (!id) return;
@@ -17,10 +18,12 @@ export default function ChampionshipDetail() {
       api.championships.get(id),
       api.championships.standings(id),
       api.races.list(id),
-    ]).then(([c, s, r]) => {
+      api.championships.titleScenarios(id).catch(() => null),
+    ]).then(([c, s, r, sc]) => {
       setChamp(c);
       setStandings(s);
       setRaces(r);
+      setScenarios(sc);
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -58,6 +61,7 @@ export default function ChampionshipDetail() {
           <button className={`tab ${tab === 'standings' ? 'active' : ''}`} onClick={() => setTab('standings')}>Driver Standings</button>
           <button className={`tab ${tab === 'constructors' ? 'active' : ''}`} onClick={() => setTab('constructors')}>Constructor Standings</button>
           <button className={`tab ${tab === 'calendar' ? 'active' : ''}`} onClick={() => setTab('calendar')}>Calendar</button>
+          <button className={`tab ${tab === 'title' ? 'active' : ''}`} onClick={() => setTab('title')}>Title Fight</button>
         </div>
 
         {tab === 'overview' && (
@@ -283,6 +287,55 @@ export default function ChampionshipDetail() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {tab === 'title' && (
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">Title Scenarios</span>
+              {scenarios?.next_race && (
+                <span className="badge badge-blue">{scenarios.remaining_races} races left</span>
+              )}
+            </div>
+            {!scenarios ? (
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24, fontSize: '0.85rem' }}>Loading...</p>
+            ) : scenarios.scenarios.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24, fontSize: '0.85rem' }}>
+                {scenarios.concluded ? 'Championship concluded' : scenarios.no_next_race ? 'No upcoming races' : 'No title contenders'}
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {scenarios.next_race && (
+                  <div style={{ background: 'rgba(37,99,235,0.04)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, marginBottom: 4 }}>
+                    <p style={{ fontWeight: 600, fontSize: '0.85rem' }}>Next Race: {scenarios.next_race.name}</p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{scenarios.next_race.circuit} · {new Date(scenarios.next_race.date).toLocaleDateString()}</p>
+                  </div>
+                )}
+                {scenarios.scenarios.map(s => (
+                  <div key={s.driver_id} style={{
+                    border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 14,
+                    borderLeft: `3px solid ${s.can_win_next_race ? 'var(--accent-green)' : 'var(--text-muted)'}`,
+                    background: s.can_win_next_race ? 'rgba(22,163,74,0.03)' : 'transparent',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                      <div>
+                        <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{s.driver_name}</span>
+                        <span style={{ color: 'var(--text-muted)', marginLeft: 6, fontSize: '0.78rem' }}>#{s.driver_number}</span>
+                        <span style={{ color: s.team_color, marginLeft: 4 }}>■ {s.team_name}</span>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{s.current_points} pts</span>
+                        {s.can_win_next_race && <span className="badge badge-green" style={{ marginLeft: 6 }}>Can clinch!</span>}
+                      </div>
+                    </div>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                      {s.scenario_description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

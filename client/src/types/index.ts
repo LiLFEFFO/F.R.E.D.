@@ -117,6 +117,15 @@ export interface TitleScenario {
   scenario_description: string;
 }
 
+export interface TitleScenariosResponse {
+  scenarios: TitleScenario[];
+  concluded?: boolean;
+  no_next_race?: boolean;
+  next_race?: any;
+  remaining_races?: number;
+  max_points_per_race?: number;
+}
+
 export interface DriverStanding {
   id: string;
   championship_id: string;
