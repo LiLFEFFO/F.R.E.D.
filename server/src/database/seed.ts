@@ -3,7 +3,7 @@ import { initSchema, db } from './schema';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 
-async function main() {
+export default async function seed() {
   await initSchema();
 
   const adminId = uuidv4();
@@ -138,4 +138,6 @@ async function main() {
   console.log('  Password: racer123');
 }
 
-main().catch(console.error);
+if (require.main === module) {
+  seed().catch(console.error);
+}

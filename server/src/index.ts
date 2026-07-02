@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { initSchema } from './database/schema';
+import { initSchema, db } from './database/schema';
 import authRoutes from './routes/auth';
 import championshipRoutes from './routes/championships';
 import driverRoutes from './routes/drivers';
@@ -43,7 +43,17 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-initSchema().then(() => {
+async function seedIfEmpty() {
+  const userCount = await db.queryOne('SELECT COUNT(*)::int as cnt FROM users');
+  if (userCount?.cnt === 0) {
+    console.log('Database is empty, seeding...');
+    const { default: seed } = await import('./database/seed');
+    await seed();
+  }
+}
+
+initSchema().then(async () => {
+  await seedIfEmpty();
   app.listen(PORT, () => {
     console.log(`F.R.E.D. API server running on http://localhost:${PORT}`);
   });
