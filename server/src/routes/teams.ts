@@ -8,7 +8,10 @@ const router = Router();
 router.get('/', optionalAuth, (req: AuthRequest, res: Response): void => {
   const db = getDb();
   const championship_id = req.query.championship_id as string;
-  let query = 'SELECT t.*, (SELECT COUNT(*) FROM drivers WHERE team_id = t.id) as driver_count FROM teams t';
+  let query = `SELECT t.*,
+    (SELECT COUNT(*) FROM drivers WHERE team_id = t.id) as driver_count,
+    (SELECT d.name FROM drivers d WHERE d.id = t.reserve_driver_id) as reserve_driver_name
+    FROM teams t`;
   const params: any[] = [];
   if (championship_id) {
     query += ' WHERE t.championship_id = ?';
@@ -20,7 +23,7 @@ router.get('/', optionalAuth, (req: AuthRequest, res: Response): void => {
 
 router.post('/', authenticate, requireElite, (req: AuthRequest, res: Response): void => {
   const db = getDb();
-  const { championship_id, name, color, logo, livery } = req.body;
+  const { championship_id, name, color, logo, livery, reserve_driver_id } = req.body;
   if (!championship_id || !name) {
     res.status(400).json({ error: 'Championship and name required' });
     return;
@@ -31,8 +34,8 @@ router.post('/', authenticate, requireElite, (req: AuthRequest, res: Response): 
     return;
   }
   const id = uuidv4();
-  db.prepare('INSERT INTO teams (id, championship_id, name, color, logo, livery) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(id, championship_id, name, color || '#e10600', logo || '', livery || '');
+  db.prepare('INSERT INTO teams (id, championship_id, name, color, logo, livery, reserve_driver_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(id, championship_id, name, color || '#e10600', logo || '', livery || '', reserve_driver_id || null);
   saveDb();
   res.status(201).json(db.prepare('SELECT * FROM teams WHERE id = ?').get(id));
 });
@@ -44,9 +47,9 @@ router.put('/:id', authenticate, requireElite, (req: AuthRequest, res: Response)
     res.status(403).json({ error: 'Not authorized' });
     return;
   }
-  const { name, color, logo, livery } = req.body;
-  db.prepare('UPDATE teams SET name = COALESCE(?, name), color = COALESCE(?, color), logo = COALESCE(?, logo), livery = COALESCE(?, livery) WHERE id = ?')
-    .run(name, color, logo, livery, req.params.id);
+  const { name, color, logo, livery, reserve_driver_id } = req.body;
+  db.prepare('UPDATE teams SET name = COALESCE(?, name), color = COALESCE(?, color), logo = COALESCE(?, logo), livery = COALESCE(?, livery), reserve_driver_id = COALESCE(?, reserve_driver_id) WHERE id = ?')
+    .run(name, color, logo, livery, reserve_driver_id ?? null, req.params.id);
   saveDb();
   res.json(db.prepare('SELECT * FROM teams WHERE id = ?').get(req.params.id));
 });

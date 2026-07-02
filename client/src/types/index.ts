@@ -43,6 +43,7 @@ export interface Team {
   name: string;
   color: string;
   logo: string;
+  reserve_driver_id: string | null;
   driver_count?: number;
 }
 
@@ -89,6 +90,7 @@ export interface RaceResult {
   pole_position: boolean;
   fastest_lap: boolean;
   dnf: boolean;
+  present: boolean;
   penalties: string;
   notes: string;
   driver_name?: string;
@@ -96,6 +98,23 @@ export interface RaceResult {
   driver_avatar?: string;
   team_name?: string;
   team_color?: string;
+}
+
+export interface TitleScenario {
+  driver_id: string;
+  driver_name: string;
+  driver_number: number;
+  avatar: string;
+  team_name: string;
+  team_color: string;
+  current_points: number;
+  can_win_next_race: boolean;
+  position_needed: number;
+  leader_driver_name: string;
+  leader_driver_id: string;
+  leader_points: number;
+  leader_position_limit: number;
+  scenario_description: string;
 }
 
 export interface DriverStanding {

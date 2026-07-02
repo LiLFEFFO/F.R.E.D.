@@ -90,6 +90,8 @@ function initSchema() {
   try { d.run('ALTER TABLE teams ADD COLUMN livery TEXT DEFAULT \'\'', []); } catch (e) {}
   try { d.run('ALTER TABLE news ADD COLUMN cover_image TEXT DEFAULT \'\'', []); } catch (e) {}
   try { d.run('ALTER TABLE race_results ADD COLUMN qualifying_position INTEGER DEFAULT NULL', []); } catch (e) {}
+  try { d.run('ALTER TABLE teams ADD COLUMN reserve_driver_id TEXT REFERENCES drivers(id)', []); } catch (e) {}
+  try { d.run('ALTER TABLE race_results ADD COLUMN present INTEGER NOT NULL DEFAULT 1', []); } catch (e) {}
   d.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,

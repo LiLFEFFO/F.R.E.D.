@@ -110,19 +110,20 @@ router.post('/:id/results', authenticate, requireElite, (req: AuthRequest, res: 
   db.prepare('UPDATE races SET status = ?, updated_at = datetime("now") WHERE id = ?').run('completed', race.id);
 
   const insertResult = db.prepare(`
-    INSERT INTO race_results (id, race_id, driver_id, position, points, pole_position, fastest_lap, dnf, qualifying_position, penalties, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO race_results (id, race_id, driver_id, position, points, pole_position, fastest_lap, dnf, present, qualifying_position, penalties, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const r of results) {
-    const basePoints = r.position <= pointsArray.length ? pointsArray[r.position - 1] : 0;
+    const basePoints = (!r.dnf && r.present !== false && r.position <= pointsArray.length) ? pointsArray[r.position - 1] : 0;
     let totalPoints = basePoints;
-    if (r.pole_position && sc) totalPoints += sc.pole_bonus;
-    if (r.fastest_lap && sc) totalPoints += sc.fastest_lap_bonus;
+    if (r.pole_position && sc && r.present !== false) totalPoints += sc.pole_bonus;
+    if (r.fastest_lap && sc && r.present !== false) totalPoints += sc.fastest_lap_bonus;
 
     insertResult.run(
       uuidv4(), race.id, r.driver_id, r.position, totalPoints,
       r.pole_position ? 1 : 0, r.fastest_lap ? 1 : 0, r.dnf ? 1 : 0,
+      r.present !== false ? 1 : 0,
       r.qualifying_position != null ? r.qualifying_position : null,
       r.penalties || '', r.notes || ''
     );
@@ -180,6 +181,19 @@ router.get('/:id/export', optionalAuth, (req: AuthRequest, res: Response): void 
   } else {
     res.json({ race, results });
   }
+});
+
+router.put('/:id/reopen', authenticate, requireElite, (req: AuthRequest, res: Response): void => {
+  const db = getDb();
+  const race = db.prepare('SELECT r.*, c.created_by as owner_id FROM races r JOIN championships c ON r.championship_id = c.id WHERE r.id = ?').get(req.params.id) as any;
+  if (!race || race.owner_id !== req.user!.id) {
+    res.status(403).json({ error: 'Not authorized' });
+    return;
+  }
+  db.prepare("UPDATE races SET status = 'scheduled', updated_at = datetime('now') WHERE id = ?").run(race.id);
+  db.prepare('DELETE FROM race_results WHERE race_id = ?').run(race.id);
+  saveDb();
+  res.json(db.prepare('SELECT * FROM races WHERE id = ?').get(race.id));
 });
 
 export default router;

@@ -54,13 +54,13 @@ export default function AdminChampionship() {
   };
 
   const [showAddTeam, setShowAddTeam] = useState(false);
-  const [teamForm, setTeamForm] = useState({ name: '', color: '#2563eb', logo: '', livery: '' });
+  const [teamForm, setTeamForm] = useState({ name: '', color: '#2563eb', logo: '', livery: '', reserve_driver_id: '' });
 
   const addTeam = async () => {
     if (!teamForm.name) return;
-    await api.teams.create({ championship_id: id, ...teamForm });
+    await api.teams.create({ championship_id: id, ...teamForm, reserve_driver_id: teamForm.reserve_driver_id || null });
     setShowAddTeam(false);
-    setTeamForm({ name: '', color: '#2563eb', logo: '', livery: '' });
+    setTeamForm({ name: '', color: '#2563eb', logo: '', livery: '', reserve_driver_id: '' });
     loadData();
   };
 
@@ -72,7 +72,7 @@ export default function AdminChampionship() {
   };
 
   const [editingTeam, setEditingTeam] = useState<any>(null);
-  const [editTeamForm, setEditTeamForm] = useState({ name: '', color: '#2563eb', logo: '', livery: '' });
+  const [editTeamForm, setEditTeamForm] = useState({ name: '', color: '#2563eb', logo: '', livery: '', reserve_driver_id: '' });
 
   const saveTeamEdit = async () => {
     if (!editingTeam) return;
@@ -282,7 +282,7 @@ export default function AdminChampionship() {
                       <td>{t.driver_count || 0}</td>
                       <td>
                         <div style={{ display: 'flex', gap: 4 }}>
-                          <button className="btn btn-ghost btn-sm" onClick={() => { setEditingTeam(t); setEditTeamForm({ name: t.name, color: t.color, logo: t.logo || '', livery: t.livery || '' }); }}>Edit</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => { setEditingTeam(t); setEditTeamForm({ name: t.name, color: t.color, logo: t.logo || '', livery: t.livery || '', reserve_driver_id: t.reserve_driver_id || '' }); }}>Edit</button>
                           <button className="btn btn-danger btn-sm" onClick={() => deleteTeam(t.id)}>Delete</button>
                         </div>
                       </td>
@@ -435,9 +435,9 @@ export default function AdminChampionship() {
         {showScoring && scoringForm && (
           <Modal onClose={() => setShowScoring(false)} title="Edit Scoring" wide>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: 8 }}>
-              Points awarded per finishing position. Leave empty or 0 for positions beyond the grid.
+              Points awarded per finishing position. Use +/- to add/remove scoring positions.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
               {scoringForm.position_points.map((pts: number, i: number) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', minWidth: 60 }}>P{i + 1}</label>
@@ -447,6 +447,16 @@ export default function AdminChampionship() {
                       newArr[i] = parseInt(e.target.value) || 0;
                       setScoringForm((f: any) => ({ ...f, position_points: newArr }));
                     }} />
+                  {i === scoringForm.position_points.length - 1 && (
+                    <button className="btn btn-ghost btn-sm" onClick={() => {
+                      setScoringForm((f: any) => ({ ...f, position_points: [...f.position_points, 0] }));
+                    }} style={{ padding: '2px 6px', fontSize: '0.78rem' }}>+</button>
+                  )}
+                  {scoringForm.position_points.length > 1 && i === scoringForm.position_points.length - 1 && (
+                    <button className="btn btn-ghost btn-sm" onClick={() => {
+                      setScoringForm((f: any) => ({ ...f, position_points: f.position_points.slice(0, -1) }));
+                    }} style={{ padding: '2px 6px', fontSize: '0.78rem', color: 'var(--accent-red)' }}>−</button>
+                  )}
                 </div>
               ))}
             </div>

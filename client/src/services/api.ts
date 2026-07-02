@@ -43,6 +43,7 @@ export const api = {
     standings: (id: string) => request(`/championships/${id}/standings`),
     statistics: (id: string) => request(`/championships/${id}/statistics`),
     updateScoring: (id: string, data: any) => request(`/championships/${id}/scoring`, { method: 'PUT', body: JSON.stringify(data) }),
+    titleScenarios: (id: string) => request(`/championships/${id}/title-scenarios`),
   },
   drivers: {
     list: (params?: { championship_id?: string; search?: string }) => {
@@ -58,7 +59,7 @@ export const api = {
   },
   teams: {
     list: (championship_id?: string) => request(`/teams${championship_id ? `?championship_id=${championship_id}` : ''}`),
-    create: (data: any) => request('/teams', { method: 'POST', body: JSON.stringify(data) }),
+    create: (data: any) => request('/teams', { method: 'POST', body: JSON.stringify({ ...data, reserve_driver_id: data.reserve_driver_id || null }) }),
     update: (id: string, data: any) => request(`/teams/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => request(`/teams/${id}`, { method: 'DELETE' }),
   },
@@ -71,6 +72,7 @@ export const api = {
     submitResults: (id: string, results: any[]) =>
       request(`/races/${id}/results`, { method: 'POST', body: JSON.stringify({ results }) }),
     export: (id: string, format: string) => request(`/races/${id}/export?format=${format}`),
+    reopen: (id: string) => request(`/races/${id}/reopen`, { method: 'PUT' }),
   },
   admin: {
     myChampionships: () => request('/admin/my-championships'),

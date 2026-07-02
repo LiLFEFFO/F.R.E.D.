@@ -224,4 +224,112 @@ router.get('/:id/statistics', optionalAuth, (req: AuthRequest, res: Response): v
   res.json({ drivers, race_history: Object.values(raceMap) });
 });
 
+router.get('/:id/title-scenarios', optionalAuth, (req: AuthRequest, res: Response): void => {
+  const db = getDb();
+  const champ = db.prepare('SELECT * FROM championships WHERE id = ?').get(req.params.id) as any;
+  if (!champ) { res.status(404).json({ error: 'Championship not found' }); return; }
+
+  if (champ.status === 'concluded') { res.json({ scenarios: [], concluded: true }); return; }
+
+  const sc = db.prepare('SELECT * FROM scoring_systems WHERE championship_id = ?').get(champ.id) as any;
+  if (!sc) { res.json({ scenarios: [], concluded: false }); return; }
+
+  const pointsArray = JSON.parse(sc.position_points);
+  const maxPerRace = (pointsArray[0] || 25) + (sc.pole_bonus || 0) + (sc.fastest_lap_bonus || 0);
+
+  const races = db.prepare("SELECT * FROM races WHERE championship_id = ? ORDER BY date ASC").all(champ.id) as any[];
+  const nextRace = races.find((r: any) => r.status !== 'completed');
+  const remaining = races.filter((r: any) => r.status !== 'completed');
+  const afterNext = remaining.length - 1;
+
+  if (!nextRace) { res.json({ scenarios: [], concluded: false, no_next_race: true }); return; }
+
+  const driverStandings = db.prepare(`
+    SELECT ds.*, d.name as driver_name, d.number as driver_number, d.avatar, d.team_id,
+      t.name as team_name, t.color as team_color
+    FROM driver_standings ds
+    JOIN drivers d ON ds.driver_id = d.id
+    LEFT JOIN teams t ON d.team_id = t.id
+    WHERE ds.championship_id = ?
+    ORDER BY ds.points DESC
+  `).all(champ.id) as any[];
+
+  if (driverStandings.length === 0) { res.json({ scenarios: [], concluded: false }); return; }
+
+  const leader = driverStandings[0];
+  const scenarios: any[] = [];
+
+  for (const d of driverStandings) {
+    const maxPerNext = pointsArray[0] + (sc.pole_bonus || 0) + (sc.fastest_lap_bonus || 0);
+    const driverMaxTotal = d.points + maxPerNext + (afterNext * maxPerRace);
+
+    if (driverMaxTotal <= leader.points) continue;
+
+    const deficit = leader.points - d.points;
+    const ptsNeeded = deficit + 1;
+
+    let posNeeded = -1;
+    for (let p = 1; p <= pointsArray.length; p++) {
+      if (pointsArray[p - 1] >= ptsNeeded) { posNeeded = p; break; }
+    }
+    if (posNeeded === -1) posNeeded = pointsArray.length;
+
+    let canClinch = false;
+    let desc = '';
+    let leaderLimit = -1;
+
+    if (afterNext === 0) {
+      let guaranteed = true;
+      for (const rival of driverStandings) {
+        if (rival.driver_id === d.driver_id) continue;
+        const rivalMax = rival.points + maxPerRace;
+        if (d.points + pointsArray[posNeeded - 1] <= rivalMax) { guaranteed = false; break; }
+      }
+      canClinch = true;
+      desc = guaranteed
+        ? `${d.driver_name} vince il campionato se arriva ${posNeeded}° (o meglio)!`
+        : `${d.driver_name} vince se arriva ${posNeeded}° e gli inseguitori non prendono punti.`;
+    } else {
+      const dNew = d.points + pointsArray[posNeeded - 1];
+      for (let lp = 1; lp <= pointsArray.length; lp++) {
+        const leaderNew = leader.points + pointsArray[lp - 1] + (afterNext * maxPerRace);
+        if (dNew > leaderNew) { leaderLimit = lp; break; }
+      }
+      if (leaderLimit === -1) {
+        if (dNew > leader.points + (afterNext * maxPerRace)) {
+          desc = `Se ${d.driver_name} arriva ${posNeeded}° e ${leader.driver_name} non segna punti, vince il campionato.`;
+        } else {
+          desc = `${d.driver_name} è ancora in corsa ma non può vincere matematicamente alla prossima gara.`;
+          scenarios.push({
+            driver_id: d.id, driver_name: d.driver_name, driver_number: d.driver_number,
+            avatar: d.avatar, team_name: d.team_name, team_color: d.team_color,
+            current_points: d.points, can_win_next_race: false, position_needed: posNeeded,
+            leader_driver_name: leader.driver_name, leader_driver_id: leader.driver_id,
+            leader_points: leader.points, leader_position_limit: -1, scenario_description: desc,
+          });
+          continue;
+        }
+      } else {
+        desc = `Se ${d.driver_name} arriva ${posNeeded}° (o meglio) E ${leader.driver_name} arriva ${leaderLimit}° (o peggio), ${d.driver_name} vince il campionato!`;
+        canClinch = true;
+      }
+    }
+
+    scenarios.push({
+      driver_id: d.id, driver_name: d.driver_name, driver_number: d.driver_number,
+      avatar: d.avatar, team_name: d.team_name, team_color: d.team_color,
+      current_points: d.points, can_win_next_race: canClinch, position_needed: posNeeded,
+      leader_driver_name: leader.driver_name, leader_driver_id: leader.driver_id,
+      leader_points: leader.points, leader_position_limit: leaderLimit, scenario_description: desc,
+    });
+  }
+
+  scenarios.sort((a, b) => (b.can_win_next_race ? 1 : 0) - (a.can_win_next_race ? 1 : 0));
+
+  res.json({
+    scenarios, concluded: false, next_race: nextRace,
+    remaining_races: remaining.length, max_points_per_race: maxPerRace,
+  });
+});
+
 export default router;

@@ -39,6 +39,7 @@ export interface Team {
   name: string;
   color: string;
   logo: string;
+  reserve_driver_id: string | null;
   created_at: string;
 }
 
