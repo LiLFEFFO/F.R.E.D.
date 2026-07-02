@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import type { Championship, DriverStanding, ConstructorStanding } from '../types';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export default function Standings() {
   const { id } = useParams<{ id: string }>();
@@ -38,24 +37,28 @@ export default function Standings() {
   return (
     <div className="page">
       <div className="container">
-        <Link to={`/championships/${champ.id}`} style={{ color: 'var(--text-secondary)', marginBottom: 12, display: 'inline-block', fontSize: '0.85rem' }}>
+        <Link to={`/championships/${champ.id}`} className="btn btn-ghost btn-sm mb-4" style={{ display: 'inline-flex' }}>
           ← Back to {champ.name}
         </Link>
-        <h1 className="section-title">Standings — {champ.name}</h1>
+
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+          <h1 className="section-title" style={{ marginBottom: 0 }}>Standings — {champ.name}</h1>
+          <Link to={`/championships/${champ.id}/statistics`} className="btn btn-secondary btn-sm">View Statistics</Link>
+        </div>
 
         <div className="grid grid-2">
           <div className="card">
             <div className="card-header">
-              <span className="card-title">Driver Standings</span>
+              <span className="card-title">Drivers</span>
               <input
                 type="text"
                 placeholder="Search driver..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                style={{ width: 180, padding: '5px 8px', fontSize: '0.8rem' }}
+                style={{ width: 180 }}
               />
             </div>
-            <div className="table-wrapper">
+            <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
               <table>
                 <thead>
                   <tr>
@@ -65,21 +68,23 @@ export default function Standings() {
                 <tbody>
                   {filteredDrivers.map(d => (
                     <tr key={d.driver_id}
-                      style={{ cursor: 'pointer', background: selectedDriver === d.driver_id ? 'rgba(37,99,235,0.05)' : undefined }}
+                      className={selectedDriver === d.driver_id ? 'selected-row' : ''}
                       onClick={() => setSelectedDriver(d.driver_id === selectedDriver ? null : d.driver_id)}
-                    >
-                      <td style={{ fontWeight: 600 }}>
-                        {d.position}
+                      style={{ cursor: 'pointer' }}>
+                      <td className="font-bold">
+                        <span className={`pos-indicator ${d.position === 1 ? 'gold' : d.position <= 3 ? 'podium' : ''}`}>
+                          {d.position}
+                        </span>
                         <PositionIndicator current={d.position} previous={d.previous_position} />
                       </td>
                       <td>
                         <Link to={`/drivers/${d.driver_id}`} style={{ color: 'var(--text)', fontWeight: 500 }} onClick={e => e.stopPropagation()}>
                           {d.driver_name}
                         </Link>
-                        <span style={{ color: 'var(--text-muted)', marginLeft: 4, fontSize: '0.75rem' }}>#{d.driver_number}</span>
+                        <span className="text-muted text-xs" style={{ marginLeft: 4 }}>#{d.driver_number}</span>
                       </td>
-                      <td><span style={{ color: d.team_color || 'var(--text-muted)' }}>■ </span>{d.team_name || '-'}</td>
-                      <td style={{ fontWeight: 700 }}>{d.points}</td>
+                      <td><span className="team-dot" style={{ background: d.team_color || 'var(--text-muted)' }} />{d.team_name || '-'}</td>
+                      <td className="font-bold text-accent">{d.points}</td>
                       <td>{d.wins}</td>
                       <td>{d.podiums}</td>
                       <td>{d.poles}</td>
@@ -92,67 +97,94 @@ export default function Standings() {
             </div>
           </div>
 
-          <div className="card">
-            <div className="card-header">
-              <span className="card-title">Constructor Standings</span>
+          {constructorSt.length > 0 && (
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">Constructors</span>
+              </div>
+              <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
+                <table>
+                  <thead>
+                    <tr><th>#</th><th>Team</th><th>Points</th><th>Drivers</th></tr>
+                  </thead>
+                  <tbody>
+                    {constructorSt.map(c => (
+                      <tr key={c.team_id}>
+                        <td className="font-bold">
+                          <span className={`pos-indicator ${c.position === 1 ? 'gold' : c.position <= 3 ? 'podium' : ''}`}>
+                            {c.position}
+                          </span>
+                          <PositionIndicator current={c.position} previous={c.previous_position} />
+                        </td>
+                        <td><span className="team-dot" style={{ background: c.team_color || 'var(--text-muted)' }} /><strong>{c.team_name}</strong></td>
+                        <td className="font-bold text-accent">{c.points}</td>
+                        <td>{c.driver_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr><th>#</th><th>Team</th><th>Points</th><th>Drivers</th></tr>
-                </thead>
-                <tbody>
-                  {constructorSt.map(c => (
-                    <tr key={c.team_id}>
-                      <td style={{ fontWeight: 600 }}>
-                        {c.position}
-                        <PositionIndicator current={c.position} previous={c.previous_position} />
-                      </td>
-                      <td><span style={{ color: c.team_color || 'var(--text-muted)' }}>■ </span><strong>{c.team_name}</strong></td>
-                      <td style={{ fontWeight: 700 }}>{c.points}</td>
-                      <td>{c.driver_count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          )}
         </div>
 
         {stats?.drivers && (
-          <>
-            <h2 className="section-title" style={{ marginTop: 40 }}>Driver Stats</h2>
-            <div className="grid grid-3">
+          <section className="mt-8">
+            <h2 className="section-title">Driver Stats</h2>
+            <div className="grid grid-auto">
               {stats.drivers.map((d: any) => (
-                <div key={d.id} className="card" style={{ cursor: 'pointer', padding: 16 }} onClick={() => setSelectedDriver(d.id === selectedDriver ? null : d.id)}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                <div key={d.id} className="card card-interactive" style={{ padding: 18 }} onClick={() => setSelectedDriver(d.id === selectedDriver ? null : d.id)}>
+                  <div className="flex items-center justify-between mb-3">
                     <div>
-                      <h3 style={{ fontWeight: 600, fontSize: '0.9rem' }}>{d.name}</h3>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                        <span style={{ color: d.team_color }}>■</span> {d.team_name}
+                      <h3 className="font-semibold" style={{ fontSize: '0.9rem' }}>{d.name}</h3>
+                      <p className="text-xs text-secondary">
+                        <span className="team-dot" style={{ background: d.team_color }} /> {d.team_name}
                       </p>
                     </div>
-                    <div className={`badge ${d.position === 1 ? 'badge-gold' : ''}`}>#{d.position}</div>
+                    <span className={`badge ${d.position === 1 ? 'badge-gold' : ''}`}>#{d.position}</span>
                   </div>
-                  <div className="grid grid-2" style={{ gap: 6, textAlign: 'center' }}>
-                    <div className="stat-card" style={{ padding: 10 }}><div className="value" style={{ fontSize: '1.1rem' }}>{d.points}</div><div className="label">Pts</div></div>
-                    <div className="stat-card" style={{ padding: 10 }}><div className="value" style={{ fontSize: '1.1rem' }}>{d.wins}</div><div className="label">Wins</div></div>
-                    <div className="stat-card" style={{ padding: 10 }}><div className="value" style={{ fontSize: '1.1rem' }}>{d.podiums}</div><div className="label">Podiums</div></div>
-                    <div className="stat-card" style={{ padding: 10 }}><div className="value" style={{ fontSize: '1.1rem' }}>{d.avg_points}</div><div className="label">Avg</div></div>
+                  <div className="grid grid-2" style={{ gap: 8, textAlign: 'center' }}>
+                    <div className="stat-card" style={{ padding: 10, background: 'var(--bg-secondary)' }}>
+                      <div className="value" style={{ fontSize: '1.1rem' }}>{d.points}</div>
+                      <div className="label">Pts</div>
+                    </div>
+                    <div className="stat-card" style={{ padding: 10, background: 'var(--bg-secondary)' }}>
+                      <div className="value" style={{ fontSize: '1.1rem' }}>{d.wins}</div>
+                      <div className="label">Wins</div>
+                    </div>
+                    <div className="stat-card" style={{ padding: 10, background: 'var(--bg-secondary)' }}>
+                      <div className="value" style={{ fontSize: '1.1rem' }}>{d.podiums}</div>
+                      <div className="label">Podiums</div>
+                    </div>
+                    <div className="stat-card" style={{ padding: 10, background: 'var(--bg-secondary)' }}>
+                      <div className="value" style={{ fontSize: '1.1rem' }}>{d.avg_points}</div>
+                      <div className="label">Avg</div>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-          </>
+          </section>
         )}
       </div>
+
+      <style>{`
+        .pos-indicator {
+          display: inline-flex; align-items: center; justify-content: center;
+          min-width: 24px; font-weight: 700;
+        }
+        .pos-indicator.gold { color: var(--accent-gold); }
+        .pos-indicator.podium { color: var(--accent-green); }
+        .team-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+        .selected-row td { background: var(--accent-light); }
+      `}</style>
     </div>
   );
 }
 
 function PositionIndicator({ current, previous }: { current: number; previous: number }) {
-  if (!previous || previous === 0) return <span className="position-same" style={{ fontSize: '0.75rem', marginLeft: 4 }}>–</span>;
-  if (current < previous) return <span className="position-up" style={{ fontSize: '0.75rem', marginLeft: 4 }}>▲{previous - current}</span>;
-  if (current > previous) return <span className="position-down" style={{ fontSize: '0.75rem', marginLeft: 4 }}>▼{current - previous}</span>;
-  return <span className="position-same" style={{ fontSize: '0.75rem', marginLeft: 4 }}>–</span>;
+  if (!previous || previous === 0) return <span className="position-same text-xs" style={{ marginLeft: 2 }}>–</span>;
+  if (current < previous) return <span className="position-up text-xs" style={{ marginLeft: 2 }}>▲{previous - current}</span>;
+  if (current > previous) return <span className="position-down text-xs" style={{ marginLeft: 2 }}>▼{current - previous}</span>;
+  return <span className="position-same text-xs" style={{ marginLeft: 2 }}>–</span>;
 }

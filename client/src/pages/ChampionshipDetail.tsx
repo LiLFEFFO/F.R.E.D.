@@ -39,27 +39,25 @@ export default function ChampionshipDetail() {
   return (
     <div className="page">
       <div className="container">
-        <div className="card" style={{ marginBottom: 24, padding: 28 }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        <div className="champ-header card fade-in" style={{ marginBottom: 24, padding: 28 }}>
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             <span className="badge badge-blue">{champ.season}</span>
             {(champ as any).status === 'concluded' && <span className="badge badge-green">Concluded</span>}
           </div>
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: 6 }}>{champ.name}</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 14, maxWidth: 600 }}>
-            {champ.description || 'No description'}
-          </p>
-          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: '0.85rem' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Organizer: {champ.organizer_name}</span>
-            <span style={{ color: 'var(--text-muted)' }}>Drivers: {champ.driver_count}</span>
-            <span style={{ color: 'var(--text-muted)' }}>Races: {champ.completed_races}/{champ.race_count}</span>
-            <span style={{ color: 'var(--text-muted)' }}>Max: {champ.max_participants}</span>
+          <h1 className="champ-title">{champ.name}</h1>
+          <p className="champ-desc">{champ.description || 'No description'}</p>
+          <div className="champ-meta">
+            <span>Organizer: {champ.organizer_name}</span>
+            <span>Drivers: {champ.driver_count}</span>
+            <span>Races: {champ.completed_races}/{champ.race_count}</span>
+            <span>Max: {champ.max_participants}</span>
           </div>
         </div>
 
         <div className="tabs">
           <button className={`tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>Overview</button>
-          <button className={`tab ${tab === 'standings' ? 'active' : ''}`} onClick={() => setTab('standings')}>Driver Standings</button>
-          <button className={`tab ${tab === 'constructors' ? 'active' : ''}`} onClick={() => setTab('constructors')}>Constructor Standings</button>
+          <button className={`tab ${tab === 'standings' ? 'active' : ''}`} onClick={() => setTab('standings')}>Drivers</button>
+          <button className={`tab ${tab === 'constructors' ? 'active' : ''}`} onClick={() => setTab('constructors')}>Constructors</button>
           <button className={`tab ${tab === 'calendar' ? 'active' : ''}`} onClick={() => setTab('calendar')}>Calendar</button>
           <button className={`tab ${tab === 'title' ? 'active' : ''}`} onClick={() => setTab('title')}>Title Fight</button>
         </div>
@@ -67,33 +65,36 @@ export default function ChampionshipDetail() {
         {tab === 'overview' && (
           <>
             {nextRace && (
-              <div className="card" style={{ marginBottom: 20, borderLeft: '3px solid var(--accent)' }}>
+              <div className="card mb-4 next-race-card">
                 <div className="card-header">
                   <span className="card-title">Next Race</span>
                   <span className="badge badge-blue">Upcoming</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                <div className="flex items-center justify-between flex-wrap gap-4">
                   <div>
-                    <h3 style={{ fontWeight: 600, fontSize: '1.05rem' }}>{nextRace.name}</h3>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{nextRace.circuit}</p>
+                    <h3 className="font-semibold text-lg">{nextRace.name}</h3>
+                    <p className="text-sm text-secondary">{nextRace.circuit}</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                    <p className="font-semibold">
                       {new Date(nextRace.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{nextRace.weather}</p>
+                    <p className="text-sm text-secondary">{nextRace.weather}</p>
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="grid grid-2">
+            <div className="grid grid-2 mb-4">
               <div className="card">
                 <div className="card-header">
                   <span className="card-title">Driver Standings</span>
-                  <Link to={`/championships/${champ.id}/standings`} className="btn btn-ghost btn-sm">Details</Link>
+                  <div className="flex gap-2">
+                    <Link to={`/championships/${champ.id}/standings`} className="btn btn-ghost btn-sm">Details</Link>
+                    <Link to={`/championships/${champ.id}/statistics`} className="btn btn-ghost btn-sm">Stats</Link>
+                  </div>
                 </div>
-                <div className="table-wrapper">
+                <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
                   <table>
                     <thead>
                       <tr><th>#</th><th>Driver</th><th>Team</th><th>Points</th></tr>
@@ -101,56 +102,63 @@ export default function ChampionshipDetail() {
                     <tbody>
                       {driverSt.slice(0, 5).map(d => (
                         <tr key={d.driver_id}>
-                          <td style={{ fontWeight: 600 }}>
-                            {d.position}
+                          <td className="font-bold">
+                            <span className={`pos-indicator ${d.position === 1 ? 'gold' : d.position <= 3 ? 'podium' : ''}`}>
+                              {d.position}
+                            </span>
                             <PositionIndicator current={d.position} previous={d.previous_position} />
                           </td>
-                          <td>
-                            <Link to={`/drivers/${d.driver_id}`} style={{ color: 'var(--text)', fontWeight: 500 }}>
-                              {d.driver_name}
-                            </Link>
-                          </td>
-                          <td><span style={{ color: d.team_color || 'var(--text-muted)' }}>■ </span>{d.team_name || '-'}</td>
-                          <td style={{ fontWeight: 600 }}>{d.points}</td>
+                          <td><Link to={`/drivers/${d.driver_id}`} className="driver-link" style={{ fontWeight: 500 }}>{d.driver_name}</Link></td>
+                          <td><span className="team-dot" style={{ background: d.team_color || 'var(--text-muted)' }} />{d.team_name || '-'}</td>
+                          <td className="font-bold text-accent">{d.points}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                {driverSt.length > 5 && (
+                  <div className="mt-3 text-center">
+                    <Link to={`/championships/${champ.id}/standings`} className="btn btn-ghost btn-sm">View all {driverSt.length} drivers →</Link>
+                  </div>
+                )}
               </div>
 
-              <div className="card">
-                <div className="card-header">
-                  <span className="card-title">Constructor Standings</span>
+              {constructorSt.length > 0 && (
+                <div className="card">
+                  <div className="card-header">
+                    <span className="card-title">Constructor Standings</span>
+                  </div>
+                  <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
+                    <table>
+                      <thead>
+                        <tr><th>#</th><th>Team</th><th>Points</th></tr>
+                      </thead>
+                      <tbody>
+                        {constructorSt.slice(0, 5).map(c => (
+                          <tr key={c.team_id}>
+                            <td className="font-bold">
+                              <span className={`pos-indicator ${c.position === 1 ? 'gold' : c.position <= 3 ? 'podium' : ''}`}>
+                                {c.position}
+                              </span>
+                              <PositionIndicator current={c.position} previous={c.previous_position} />
+                            </td>
+                            <td><span className="team-dot" style={{ background: c.team_color || 'var(--text-muted)' }} />{c.team_name}</td>
+                            <td className="font-bold text-accent">{c.points}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <div className="table-wrapper">
-                  <table>
-                    <thead>
-                      <tr><th>#</th><th>Team</th><th>Points</th></tr>
-                    </thead>
-                    <tbody>
-                      {constructorSt.slice(0, 5).map(c => (
-                        <tr key={c.team_id}>
-                          <td style={{ fontWeight: 600 }}>
-                            {c.position}
-                            <PositionIndicator current={c.position} previous={c.previous_position} />
-                          </td>
-                          <td><span style={{ color: c.team_color || 'var(--text-muted)' }}>■ </span>{c.team_name}</td>
-                          <td style={{ fontWeight: 600 }}>{c.points}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              )}
             </div>
 
-            <div className="card" style={{ marginTop: 20 }}>
+            <div className="card mb-4">
               <div className="card-header">
                 <span className="card-title">Recent Results</span>
               </div>
               {champ.last_results && champ.last_results.length > 0 ? (
-                <div className="table-wrapper">
+                <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
                   <table>
                     <thead>
                       <tr><th>Race</th><th>Circuit</th><th>Date</th><th>Driver</th><th>Pos</th><th>QL</th><th>Pts</th></tr>
@@ -158,29 +166,27 @@ export default function ChampionshipDetail() {
                     <tbody>
                       {(champ.last_results as any[]).slice(0, 10).map((r: any, i: number) => (
                         <tr key={r.id || i}>
-                          <td><Link to={`/races/${r.race_id}`} style={{ color: 'var(--accent)' }}>{r.race_name}</Link></td>
-                          <td style={{ color: 'var(--text-secondary)' }}>{r.circuit}</td>
-                          <td>{new Date(r.race_date).toLocaleDateString()}</td>
-                          <td style={{ fontWeight: 500 }}>{r.driver_name}</td>
+                          <td><Link to={`/races/${r.race_id}`} style={{ fontWeight: 500 }}>{r.race_name}</Link></td>
+                          <td className="text-secondary text-sm">{r.circuit}</td>
+                          <td className="text-muted text-sm">{new Date(r.race_date).toLocaleDateString()}</td>
+                          <td className="font-medium">{r.driver_name}</td>
                           <td><span className={`badge ${r.position === 1 ? 'badge-gold' : r.position <= 3 ? 'badge-green' : ''}`}>{r.position}°</span></td>
-                          <td style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{r.qualifying_position != null ? r.qualifying_position : '—'}</td>
-                          <td style={{ fontWeight: 600 }}>{r.points}</td>
+                          <td className="text-muted text-xs">{r.qualifying_position != null ? r.qualifying_position : '—'}</td>
+                          <td className="font-bold">{r.points}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 16, fontSize: '0.85rem' }}>No results yet</p>
+                <p className="text-muted text-center p-5 text-sm">No results yet</p>
               )}
             </div>
 
             {champ.rules && (
-              <div className="card" style={{ marginTop: 20 }}>
-                <div className="card-header">
-                  <span className="card-title">Regulations</span>
-                </div>
-                <pre style={{ whiteSpace: 'pre-wrap', color: 'var(--text-secondary)', fontSize: '0.85rem', fontFamily: 'var(--font)', lineHeight: 1.7 }}>{champ.rules}</pre>
+              <div className="card">
+                <div className="card-header"><span className="card-title">Regulations</span></div>
+                <div className="rules-text">{champ.rules}</div>
               </div>
             )}
           </>
@@ -190,9 +196,9 @@ export default function ChampionshipDetail() {
           <div className="card">
             <div className="card-header">
               <span className="card-title">Driver Standings</span>
-              <Link to={`/championships/${champ.id}/standings`} className="btn btn-primary btn-sm">Statistics</Link>
+              <Link to={`/championships/${champ.id}/statistics`} className="btn btn-primary btn-sm">Statistics</Link>
             </div>
-            <div className="table-wrapper">
+            <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
               <table>
                 <thead>
                   <tr>
@@ -202,18 +208,20 @@ export default function ChampionshipDetail() {
                 <tbody>
                   {driverSt.map(d => (
                     <tr key={d.driver_id}>
-                      <td style={{ fontWeight: 600 }}>
-                        {d.position}
+                      <td className="font-bold">
+                        <span className={`pos-indicator ${d.position === 1 ? 'gold' : d.position <= 3 ? 'podium' : ''}`}>
+                          {d.position}
+                        </span>
                         <PositionIndicator current={d.position} previous={d.previous_position} />
                       </td>
                       <td>
-                        <Link to={`/drivers/${d.driver_id}`} style={{ color: 'var(--text)', fontWeight: 500 }}>
+                        <Link to={`/drivers/${d.driver_id}`} className="driver-link" style={{ fontWeight: 500 }}>
                           {d.driver_name}
                         </Link>
-                        <span style={{ color: 'var(--text-muted)', marginLeft: 6, fontSize: '0.78rem' }}>#{d.driver_number}</span>
+                        <span className="text-muted text-xs" style={{ marginLeft: 6 }}>#{d.driver_number}</span>
                       </td>
-                      <td><span style={{ color: d.team_color || 'var(--text-muted)' }}>■ </span>{d.team_name || '-'}</td>
-                      <td style={{ fontWeight: 700 }}>{d.points}</td>
+                      <td><span className="team-dot" style={{ background: d.team_color || 'var(--text-muted)' }} />{d.team_name || '-'}</td>
+                      <td className="font-bold text-accent">{d.points}</td>
                       <td>{d.wins}</td>
                       <td>{d.podiums}</td>
                       <td>{d.poles}</td>
@@ -227,12 +235,12 @@ export default function ChampionshipDetail() {
           </div>
         )}
 
-        {tab === 'constructors' && (
+        {tab === 'constructors' && constructorSt.length > 0 && (
           <div className="card">
             <div className="card-header">
               <span className="card-title">Constructor Standings</span>
             </div>
-            <div className="table-wrapper">
+            <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
               <table>
                 <thead>
                   <tr><th>#</th><th>Team</th><th>Points</th><th>Drivers</th></tr>
@@ -240,12 +248,14 @@ export default function ChampionshipDetail() {
                 <tbody>
                   {constructorSt.map(c => (
                     <tr key={c.team_id}>
-                      <td style={{ fontWeight: 600 }}>
-                        {c.position}
+                      <td className="font-bold">
+                        <span className={`pos-indicator ${c.position === 1 ? 'gold' : c.position <= 3 ? 'podium' : ''}`}>
+                          {c.position}
+                        </span>
                         <PositionIndicator current={c.position} previous={c.previous_position} />
                       </td>
-                      <td><span style={{ color: c.team_color || 'var(--text-muted)' }}>■ </span><strong>{c.team_name}</strong></td>
-                      <td style={{ fontWeight: 700 }}>{c.points}</td>
+                      <td><span className="team-dot" style={{ background: c.team_color || 'var(--text-muted)' }} /><strong>{c.team_name}</strong></td>
+                      <td className="font-bold text-accent">{c.points}</td>
                       <td>{c.driver_count}</td>
                     </tr>
                   ))}
@@ -260,24 +270,22 @@ export default function ChampionshipDetail() {
             <div className="card-header">
               <span className="card-title">Race Calendar</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {races.map(r => (
-                <div key={r.id} style={{
-                  border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 14,
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
-                  background: r.status === 'completed' ? 'rgba(22,163,74,0.03)' : r.status === 'in_progress' ? 'rgba(234,88,12,0.03)' : 'transparent'
+                <div key={r.id} className="race-item" style={{
+                  background: r.status === 'completed' ? 'var(--accent-green-light)' : r.status === 'in_progress' ? 'var(--accent-orange-light)' : 'transparent'
                 }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <strong style={{ fontSize: '0.9rem' }}>{r.name}</strong>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <strong className="text-sm">{r.name}</strong>
                       {r.status === 'completed' && <span className="badge badge-green">Done</span>}
                       {r.status === 'in_progress' && <span className="badge badge-orange">Live</span>}
                       {r.status === 'scheduled' && <span className="badge badge-blue">Scheduled</span>}
                     </div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{r.circuit} · {r.weather}</p>
+                    <p className="text-sm text-secondary">{r.circuit} · {r.weather}</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <p style={{ fontWeight: 500, fontSize: '0.85rem' }}>
+                    <p className="font-medium text-sm">
                       {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
                     {r.status === 'completed' && (
@@ -299,37 +307,36 @@ export default function ChampionshipDetail() {
               )}
             </div>
             {!scenarios ? (
-              <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24, fontSize: '0.85rem' }}>Loading...</p>
+              <p className="text-muted text-center p-5 text-sm">Loading...</p>
             ) : scenarios.scenarios.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24, fontSize: '0.85rem' }}>
+              <p className="text-muted text-center p-5 text-sm">
                 {scenarios.concluded ? 'Championship concluded' : scenarios.no_next_race ? 'No upcoming races' : 'No title contenders'}
               </p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {scenarios.next_race && (
-                  <div style={{ background: 'rgba(37,99,235,0.04)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, marginBottom: 4 }}>
-                    <p style={{ fontWeight: 600, fontSize: '0.85rem' }}>Next Race: {scenarios.next_race.name}</p>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{scenarios.next_race.circuit} · {new Date(scenarios.next_race.date).toLocaleDateString()}</p>
+                  <div className="next-race-info">
+                    <p className="font-semibold text-sm">Next Race: {scenarios.next_race.name}</p>
+                    <p className="text-xs text-secondary">{scenarios.next_race.circuit} · {new Date(scenarios.next_race.date).toLocaleDateString()}</p>
                   </div>
                 )}
                 {scenarios.scenarios.map(s => (
-                  <div key={s.driver_id} style={{
-                    border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 14,
+                  <div key={s.driver_id} className="scenario-card" style={{
                     borderLeft: `3px solid ${s.can_win_next_race ? 'var(--accent-green)' : 'var(--text-muted)'}`,
-                    background: s.can_win_next_race ? 'rgba(22,163,74,0.03)' : 'transparent',
+                    background: s.can_win_next_race ? 'var(--accent-green-light)' : 'transparent',
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                    <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                       <div>
-                        <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{s.driver_name}</span>
-                        <span style={{ color: 'var(--text-muted)', marginLeft: 6, fontSize: '0.78rem' }}>#{s.driver_number}</span>
-                        <span style={{ color: s.team_color, marginLeft: 4 }}>■ {s.team_name}</span>
+                        <span className="font-semibold text-sm">{s.driver_name}</span>
+                        <span className="text-muted text-xs" style={{ marginLeft: 6 }}>#{s.driver_number}</span>
+                        <span className="text-xs" style={{ color: s.team_color, marginLeft: 4 }}>■ {s.team_name}</span>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{s.current_points} pts</span>
-                        {s.can_win_next_race && <span className="badge badge-green" style={{ marginLeft: 6 }}>Can clinch!</span>}
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm">{s.current_points} pts</span>
+                        {s.can_win_next_race && <span className="badge badge-green">Can clinch!</span>}
                       </div>
                     </div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                    <p className="text-sm text-secondary" style={{ lineHeight: 1.5 }}>
                       {s.scenario_description}
                     </p>
                   </div>
@@ -339,13 +346,39 @@ export default function ChampionshipDetail() {
           </div>
         )}
       </div>
+
+      <style>{`
+        .champ-header { border-left: 4px solid var(--accent); }
+        .champ-title { font-size: 1.7rem; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.02em; }
+        .champ-desc { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 14px; max-width: 600px; line-height: 1.6; }
+        .champ-meta { display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.85rem; color: var(--text-muted); }
+        .next-race-card { border-left: 3px solid var(--accent); }
+        .next-race-info { background: var(--bg-secondary); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 4px; }
+        .scenario-card { border-radius: var(--radius-sm); padding: 14px; border: 1px solid var(--border); }
+        .race-item {
+          display: flex; justify-content: space-between; align-items: center;
+          flex-wrap: wrap; gap: 8px;
+          border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;
+        }
+        .rules-text { white-space: pre-wrap; color: var(--text-secondary); font-size: 0.85rem; font-family: var(--font); line-height: 1.7; }
+        .pos-indicator { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; font-weight: 700; }
+        .pos-indicator.gold { color: var(--accent-gold); }
+        .pos-indicator.podium { color: var(--accent-green); }
+        .team-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+        .driver-link { color: var(--text); }
+        .driver-link:hover { color: var(--accent); }
+        @media (max-width: 600px) {
+          .champ-title { font-size: 1.3rem; }
+          .champ-meta { gap: 12px; font-size: 0.8rem; }
+        }
+      `}</style>
     </div>
   );
 }
 
 function PositionIndicator({ current, previous }: { current: number; previous: number }) {
-  if (!previous || previous === 0) return <span className="position-same" style={{ fontSize: '0.75rem', marginLeft: 4 }}>–</span>;
-  if (current < previous) return <span className="position-up" style={{ fontSize: '0.75rem', marginLeft: 4 }}>▲{previous - current}</span>;
-  if (current > previous) return <span className="position-down" style={{ fontSize: '0.75rem', marginLeft: 4 }}>▼{current - previous}</span>;
-  return <span className="position-same" style={{ fontSize: '0.75rem', marginLeft: 4 }}>–</span>;
+  if (!previous || previous === 0) return <span className="position-same text-xs" style={{ marginLeft: 2 }}>–</span>;
+  if (current < previous) return <span className="position-up text-xs" style={{ marginLeft: 2 }}>▲{previous - current}</span>;
+  if (current > previous) return <span className="position-down text-xs" style={{ marginLeft: 2 }}>▼{current - previous}</span>;
+  return <span className="position-same text-xs" style={{ marginLeft: 2 }}>–</span>;
 }

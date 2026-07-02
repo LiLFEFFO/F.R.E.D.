@@ -22,35 +22,62 @@ export default function Register() {
   };
 
   return (
-    <div className="page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 56px)' }}>
-      <div className="card" style={{ width: 380, maxWidth: '90vw' }}>
-        <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 24, textAlign: 'center' }}>Create your account</h2>
-        {error && (
-          <div style={{ background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.15)', borderRadius: 'var(--radius-sm)', padding: 10, marginBottom: 16, color: 'var(--accent-red)', fontSize: '0.85rem' }}>
-            {error}
-          </div>
-        )}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - var(--nav-height))' }}>
+      <div className="auth-card">
+        <div className="auth-header">
+          <div className="auth-logo">F</div>
+          <h2>Create your account</h2>
+          <p className="text-sm text-secondary">Join the F.R.E.D. community</p>
+        </div>
+        {error && <div className="alert alert-error mb-4">{error}</div>}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Username</label>
+            <label className="input-label">Username</label>
             <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Your username" required />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Email</label>
+            <label className="input-label">Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" required />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Password</label>
+            <label className="input-label">Password</label>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 6 characters" required minLength={6} />
           </div>
           <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%', justifyContent: 'center' }}>
-            Sign up
+            Create account
           </button>
         </form>
-        <p style={{ textAlign: 'center', marginTop: 16, color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-          Already have an account? <Link to="/login" style={{ color: 'var(--accent)' }}>Sign in</Link>
+        <p className="auth-footer">
+          Already have an account? <Link to="/login">Sign in</Link>
         </p>
       </div>
+      <style>{`
+        .auth-card {
+          width: 380px;
+          max-width: 90vw;
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-lg);
+          padding: 32px;
+          box-shadow: var(--shadow-md);
+        }
+        .auth-header { text-align: center; margin-bottom: 24px; }
+        .auth-logo {
+          width: 48px; height: 48px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, var(--accent), #7c3aed);
+          color: #fff;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.2rem;
+          font-weight: 800;
+          margin-bottom: 16px;
+        }
+        .auth-header h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 4px; }
+        .input-label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; }
+        .auth-footer { text-align: center; margin-top: 20px; color: var(--text-muted); font-size: 0.85rem; }
+      `}</style>
     </div>
   );
 }

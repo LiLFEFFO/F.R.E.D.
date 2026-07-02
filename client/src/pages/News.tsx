@@ -18,33 +18,36 @@ export default function News() {
   if (selected) {
     return (
       <div className="page">
-        <div className="container">
-          <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} style={{ marginBottom: 16 }}>
+        <div className="container" style={{ maxWidth: 760, margin: '0 auto' }}>
+          <button className="btn btn-ghost btn-sm mb-4" onClick={() => setSelected(null)}>
             ← All news
           </button>
-          <div className="card" style={{ maxWidth: 700 }}>
+          <article className="card fade-in" style={{ padding: 32 }}>
             {selected.cover_image && (
               <img src={selected.cover_image} alt={selected.title}
-                style={{ width: '100%', height: 240, objectFit: 'cover', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}
+                style={{ width: '100%', height: 280, objectFit: 'cover', borderRadius: 'var(--radius)', marginBottom: 24 }}
                 onError={e => (e.target as HTMLImageElement).style.display = 'none'} />
             )}
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: 6 }}>
+            <div className="text-xs text-muted mb-2">
               {new Date(selected.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               {selected.author_name && <span> · by {selected.author_name}</span>}
             </div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 16 }}>{selected.title}</h1>
-            <div style={{ lineHeight: 1.7, color: 'var(--text-secondary)', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: 20, letterSpacing: '-0.02em' }}>{selected.title}</h1>
+            <div className="news-content">
               {selected.content}
             </div>
-          </div>
+          </article>
         </div>
+        <style>{`
+          .news-content { line-height: 1.8; color: var(--text-secondary); font-size: 0.95rem; white-space: pre-wrap; }
+        `}</style>
       </div>
     );
   }
 
   return (
     <div className="page">
-      <div className="container">
+      <div className="container" style={{ maxWidth: 760, margin: '0 auto' }}>
         <h1 className="section-title">News</h1>
         {news.length === 0 ? (
           <div className="empty-state">
@@ -52,12 +55,12 @@ export default function News() {
             <p>Check back later for updates.</p>
           </div>
         ) : (
-          <div className="card" style={{ maxWidth: 700 }}>
-            {news.map((item: any) => (
-              <div key={item.id} className="news-card" style={{ cursor: 'pointer' }} onClick={() => setSelected(item)}>
+          <div className="card" style={{ padding: 8 }}>
+            {news.map((item: any, i: number) => (
+              <div key={item.id} className="news-card fade-in" style={{ cursor: 'pointer', padding: '16px 16px', animationDelay: `${i * 0.04}s` }} onClick={() => setSelected(item)}>
                 {item.cover_image && (
                   <img src={item.cover_image} alt={item.title}
-                    style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 'var(--radius-sm)', marginBottom: 10 }}
+                    style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 'var(--radius-sm)', marginBottom: 12 }}
                     onError={e => (e.target as HTMLImageElement).style.display = 'none'} />
                 )}
                 <div className="date">

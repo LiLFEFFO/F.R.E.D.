@@ -49,80 +49,96 @@ export default function CompareDrivers() {
     <div className="page">
       <div className="container">
         <h1 className="section-title">Compare Drivers</h1>
+        <p className="text-sm text-secondary mb-6">Select a series and two drivers to compare their performance</p>
 
-        <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card mb-6">
           <div className="grid grid-3" style={{ alignItems: 'end' }}>
             <div>
-              <label style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Series</label>
+              <label className="input-label">Series</label>
               <select value={selectedChamp} onChange={e => { setSelectedChamp(e.target.value); setDriver1(''); setDriver2(''); setComparison(null); }}>
                 <option value="">Select series</option>
                 {champs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Driver 1</label>
-              <select value={driver1} onChange={e => setDriver1(e.target.value)}>
-                <option value="">Select</option>
+              <label className="input-label">Driver 1</label>
+              <select value={driver1} onChange={e => setDriver1(e.target.value)} disabled={!selectedChamp}>
+                <option value="">Select driver</option>
                 {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: 4, color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Driver 2</label>
-              <select value={driver2} onChange={e => setDriver2(e.target.value)}>
-                <option value="">Select</option>
-                {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              <label className="input-label">Driver 2</label>
+              <select value={driver2} onChange={e => setDriver2(e.target.value)} disabled={!selectedChamp}>
+                <option value="">Select driver</option>
+                {drivers.filter(d => d.id !== driver1).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </div>
           </div>
-          <button className="btn btn-primary" onClick={compare} disabled={!driver1 || !driver2 || loading} style={{ marginTop: 12 }}>
+          <button className="btn btn-primary mt-4" onClick={compare} disabled={!driver1 || !driver2 || loading}>
             {loading ? 'Loading...' : 'Compare'}
           </button>
         </div>
 
         {comparison && (
-          <>
-            <div className="grid grid-2" style={{ marginBottom: 20 }}>
-              <div className="card" style={{ textAlign: 'center', padding: 24 }}>
-                <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 4 }}>{comparison.d1.name}</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>#{comparison.d1.number} · {comparison.d1.team_name || 'No team'}</p>
-                <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div><span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Points</span><div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{comparison.d1.points || 0}</div></div>
-                  <div><span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Wins</span><div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{comparison.d1.wins || 0}</div></div>
-                  <div><span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Podiums</span><div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{comparison.d1.podiums || 0}</div></div>
-                  <div><span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Poles</span><div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{comparison.d1.poles || 0}</div></div>
+          <div className="fade-in">
+            <div className="grid grid-2 mb-6">
+              {[comparison.d1, comparison.d2].map((d: any, i: number) => (
+                <div key={i} className="card" style={{ borderTop: `3px solid ${i === 0 ? 'var(--accent)' : 'var(--accent-orange)'}` }}>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="avatar avatar-lg" style={{ background: i === 0 ? 'var(--accent-light)' : 'var(--accent-orange-light)', color: i === 0 ? 'var(--accent)' : 'var(--accent-orange)' }}>
+                      {d.name?.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">{d.name}</h3>
+                      <p className="text-sm text-secondary">{d.team_name || 'No team'} · #{d.number}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-2" style={{ gap: 10 }}>
+                    <div className="stat-card" style={{ padding: 12 }}>
+                      <div className="value" style={{ fontSize: '1.3rem' }}>{d.points || 0}</div>
+                      <div className="label">Points</div>
+                    </div>
+                    <div className="stat-card" style={{ padding: 12 }}>
+                      <div className="value" style={{ fontSize: '1.3rem' }}>{d.wins || 0}</div>
+                      <div className="label">Wins</div>
+                    </div>
+                    <div className="stat-card" style={{ padding: 12 }}>
+                      <div className="value" style={{ fontSize: '1.3rem' }}>{d.podiums || 0}</div>
+                      <div className="label">Podiums</div>
+                    </div>
+                    <div className="stat-card" style={{ padding: 12 }}>
+                      <div className="value" style={{ fontSize: '1.3rem' }}>{d.poles || 0}</div>
+                      <div className="label">Poles</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="card" style={{ textAlign: 'center', padding: 24 }}>
-                <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 4 }}>{comparison.d2.name}</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>#{comparison.d2.number} · {comparison.d2.team_name || 'No team'}</p>
-                <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div><span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Points</span><div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{comparison.d2.points || 0}</div></div>
-                  <div><span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Wins</span><div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{comparison.d2.wins || 0}</div></div>
-                  <div><span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Podiums</span><div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{comparison.d2.podiums || 0}</div></div>
-                  <div><span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Poles</span><div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{comparison.d2.poles || 0}</div></div>
-                </div>
-              </div>
+              ))}
             </div>
 
             <div className="card">
-              <div className="card-header"><span className="card-title">Comparison Chart</span></div>
-              <div style={{ width: '100%', height: 350 }}>
+              <div className="card-header"><span className="card-title">Head-to-Head Comparison</span></div>
+              <div style={{ width: '100%', height: 340 }}>
                 <ResponsiveContainer>
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="category" stroke="var(--text-muted)" fontSize={12} />
                     <YAxis stroke="var(--text-muted)" fontSize={11} />
                     <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }} />
+                    <Bar dataKey={comparison.d1.name} fill="var(--accent)" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey={comparison.d2.name} fill="var(--accent-orange)" radius={[4, 4, 0, 0]} maxBarSize={32} />
                     <Legend />
-                    <Bar dataKey={comparison.d1.name} fill="var(--accent)" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey={comparison.d2.name} fill="#ea580c" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
+
+      <style>{`
+        .input-label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; }
+      `}</style>
     </div>
   );
 }
