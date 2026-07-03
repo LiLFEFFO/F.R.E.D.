@@ -48,16 +48,17 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
   `, [req.params.id]) as any;
   if (!champ) { res.status(404).json({ error: 'Championship not found' }); return; }
 
-  const scoring = await db.queryOne('SELECT * FROM scoring_systems WHERE championship_id = $1', [champ.id]);
-  const nextRace = await db.query("SELECT * FROM races WHERE championship_id = $1 AND status != 'completed' AND date >= CURRENT_DATE ORDER BY date ASC LIMIT 1", [champ.id]);
-  const lastResults = await db.query(`
+  let scoring = null, nextRace = null, lastResults = [];
+  try { scoring = await db.queryOne('SELECT * FROM scoring_systems WHERE championship_id = $1', [champ.id]); } catch {}
+  try { nextRace = (await db.query("SELECT * FROM races WHERE championship_id = $1 AND status != 'completed' AND date >= CURRENT_DATE ORDER BY date ASC LIMIT 1", [champ.id]))[0] || null; } catch {}
+  try { lastResults = await db.query(`
     SELECT rr.id, rr.race_id, rr.driver_id, rr.position, rr.points, rr.qualifying_position, rr.pole_position, rr.fastest_lap, rr.dnf,
       d.name as driver_name, r.name as race_name, r.circuit, r.date as race_date
     FROM race_results rr JOIN races r ON rr.race_id = r.id JOIN drivers d ON rr.driver_id = d.id
     WHERE r.championship_id = $1 ORDER BY r.date DESC LIMIT 10
-  `, [champ.id]);
+  `, [champ.id]); } catch {}
 
-  res.json({ ...champ, scoring, next_race: nextRace[0] || null, last_results: lastResults });
+  res.json({ ...champ, scoring, next_race: nextRace, last_results: lastResults });
 }));
 
 router.post('/', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
