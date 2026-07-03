@@ -49,7 +49,7 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
   if (!champ) { res.status(404).json({ error: 'Championship not found' }); return; }
 
   const scoring = await db.queryOne('SELECT * FROM scoring_systems WHERE championship_id = $1', [champ.id]);
-  const nextRace = await db.query("SELECT * FROM races WHERE championship_id = $1 AND status != 'completed' AND date >= date('now') ORDER BY date ASC LIMIT 1", [champ.id]);
+  const nextRace = await db.query("SELECT * FROM races WHERE championship_id = $1 AND status != 'completed' AND date >= CURRENT_DATE ORDER BY date ASC LIMIT 1", [champ.id]);
   const lastResults = await db.query(`
     SELECT rr.id, rr.race_id, rr.driver_id, rr.position, rr.points, rr.qualifying_position, rr.pole_position, rr.fastest_lap, rr.dnf,
       d.name as driver_name, r.name as race_name, r.circuit, r.date as race_date

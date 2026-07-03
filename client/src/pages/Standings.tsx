@@ -14,15 +14,12 @@ export default function Standings() {
 
   useEffect(() => {
     if (!id) return;
-    Promise.all([
-      api.championships.get(id),
-      api.championships.standings(id),
-      api.championships.statistics(id),
-    ]).then(([c, s, st]) => {
-      setChamp(c);
-      setStandings(s);
-      setStats(st);
-    }).finally(() => setLoading(false));
+    (async () => {
+      try { setChamp(await api.championships.get(id)); } catch {}
+      try { setStandings(await api.championships.standings(id)); } catch {}
+      try { setStats(await api.championships.statistics(id)); } catch {}
+      setLoading(false);
+    })();
   }, [id]);
 
   if (loading) return <div className="page"><div className="loading"><div className="spinner" /></div></div>;

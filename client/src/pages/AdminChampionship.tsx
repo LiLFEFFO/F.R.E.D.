@@ -18,18 +18,10 @@ export default function AdminChampionship() {
 
   const loadData = async () => {
     if (!id) return;
-    try {
-      const [c, d, t, r] = await Promise.all([
-        api.championships.get(id),
-        api.drivers.list({ championship_id: id }),
-        api.teams.list(id),
-        api.races.list(id),
-      ]);
-      setChamp(c);
-      setDrivers(d);
-      setTeams(t);
-      setRaces(r);
-    } catch {}
+    try { setChamp(await api.championships.get(id)); } catch {}
+    try { setDrivers(await api.drivers.list({ championship_id: id })); } catch {}
+    try { setTeams(await api.teams.list(id)); } catch {}
+    try { setRaces(await api.races.list(id)); } catch {}
     setLoading(false);
   };
 

@@ -14,17 +14,13 @@ export default function ChampionshipDetail() {
 
   useEffect(() => {
     if (!id) return;
-    Promise.all([
-      api.championships.get(id),
-      api.championships.standings(id),
-      api.races.list(id),
-      api.championships.titleScenarios(id).catch(() => null),
-    ]).then(([c, s, r, sc]) => {
-      setChamp(c);
-      setStandings(s);
-      setRaces(r);
-      setScenarios(sc);
-    }).finally(() => setLoading(false));
+    (async () => {
+      try { setChamp(await api.championships.get(id)); } catch {}
+      try { setStandings(await api.championships.standings(id)); } catch {}
+      try { setRaces(await api.races.list(id)); } catch {}
+      try { setScenarios(await api.championships.titleScenarios(id)); } catch {}
+      setLoading(false);
+    })();
   }, [id]);
 
   if (loading) return <div className="page"><div className="loading"><div className="spinner" /></div></div>;

@@ -13,13 +13,11 @@ export default function Statistics() {
 
   useEffect(() => {
     if (!id) return;
-    Promise.all([
-      api.championships.get(id),
-      api.championships.statistics(id),
-    ]).then(([c, s]) => {
-      setChamp(c);
-      setStats(s);
-    }).finally(() => setLoading(false));
+    (async () => {
+      try { setChamp(await api.championships.get(id)); } catch {}
+      try { setStats(await api.championships.statistics(id)); } catch {}
+      setLoading(false);
+    })();
   }, [id]);
 
   if (loading) return <div className="page"><div className="loading"><div className="spinner" /></div></div>;
