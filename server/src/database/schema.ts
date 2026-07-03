@@ -184,6 +184,10 @@ export async function initSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    -- Migrations for existing tables
+    ALTER TABLE races ADD COLUMN IF NOT EXISTS has_sprint INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE scoring_systems ADD COLUMN IF NOT EXISTS sprint_points TEXT NOT NULL DEFAULT '[10,8,6,5,4,3,2,1]';
   `);
   console.log('Database schema initialized');
 }
