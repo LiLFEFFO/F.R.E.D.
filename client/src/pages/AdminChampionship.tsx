@@ -276,6 +276,10 @@ export default function AdminChampionship() {
                   }}>
                     {champ.status === 'concluded' ? 'Reopen Series' : 'Conclude Series'}
                   </button>
+                  <button className="btn btn-secondary" onClick={async () => {
+                    await api.championships.recalculate(id!);
+                    loadData();
+                  }}>Recalculate Standings</button>
                   <button className="btn btn-danger" onClick={async () => {
                     if (confirm('Delete this series permanently? All data will be lost.')) {
                       await api.championships.delete(id!);

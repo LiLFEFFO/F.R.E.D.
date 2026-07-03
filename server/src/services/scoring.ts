@@ -9,8 +9,9 @@ export async function getPointsForPosition(scoringId: string, position: number):
 }
 
 export async function recalculateChampionship(championshipId: string): Promise<void> {
+  try {
   const scoring = await db.queryOne('SELECT * FROM scoring_systems WHERE championship_id = $1', [championshipId]) as any;
-  if (!scoring) return;
+  if (!scoring) { console.warn(`No scoring system for championship ${championshipId}`); return; }
 
   const drivers = await db.query('SELECT * FROM drivers WHERE championship_id = $1', [championshipId]) as any[];
   const teams = await db.query('SELECT * FROM teams WHERE championship_id = $1', [championshipId]) as any[];
@@ -92,5 +93,8 @@ export async function recalculateChampionship(championshipId: string): Promise<v
       INSERT INTO constructor_standings (id, championship_id, team_id, points, position, previous_position, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, NOW())
     `, [uuidv4(), championshipId, t.id, t.points, i + 1, prev]);
+  }
+  } catch (err) {
+    console.error(`Error recalculating championship ${championshipId}:`, err);
   }
 }

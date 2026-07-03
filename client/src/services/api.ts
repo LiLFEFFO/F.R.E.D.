@@ -44,6 +44,7 @@ export const api = {
     statistics: (id: string) => request(`/championships/${id}/statistics`),
     updateScoring: (id: string, data: any) => request(`/championships/${id}/scoring`, { method: 'PUT', body: JSON.stringify(data) }),
     titleScenarios: (id: string) => request(`/championships/${id}/title-scenarios`),
+    recalculate: (id: string) => request(`/championships/${id}/recalculate`, { method: 'POST' }),
   },
   drivers: {
     list: (params?: { championship_id?: string; search?: string }) => {

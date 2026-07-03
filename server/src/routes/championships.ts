@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../database/schema';
 import { authenticate, requireElite, optionalAuth, AuthRequest } from '../middleware/auth';
 import { asyncHandler } from '../utils/asyncHandler';
+import { recalculateChampionship } from '../services/scoring';
 
 const router = Router();
 
@@ -99,6 +100,13 @@ router.put('/:id/conclude', authenticate, requireElite, asyncHandler(async (req:
   const newStatus = champ.status === 'concluded' ? 'active' : 'concluded';
   await db.execute("UPDATE championships SET status = $1, updated_at = NOW() WHERE id = $2", [newStatus, req.params.id]);
   res.json(await db.queryOne('SELECT * FROM championships WHERE id = $1', [req.params.id]));
+}));
+
+router.post('/:id/recalculate', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const champ = await db.queryOne('SELECT id FROM championships WHERE id = $1 AND created_by = $2', [req.params.id, req.user!.id]);
+  if (!champ) { res.status(403).json({ error: 'Not authorized' }); return; }
+  await recalculateChampionship(req.params.id);
+  res.json({ message: 'Standings recalculated' });
 }));
 
 router.get('/:id/standings', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
