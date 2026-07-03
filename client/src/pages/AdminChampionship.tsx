@@ -96,6 +96,16 @@ export default function AdminChampionship() {
   const [sprintResultEntries, setSprintResultEntries] = useState<any[]>([]);
   const [resultsTab, setResultsTab] = useState<'race' | 'sprint'>('race');
 
+  const [editingRace, setEditingRace] = useState<any>(null);
+  const [editRaceForm, setEditRaceForm] = useState({ name: '', circuit: '', date: '', weather: 'Dry', has_sprint: false });
+
+  const saveRaceEdit = async () => {
+    if (!editingRace) return;
+    await api.races.update(editingRace.id, editRaceForm);
+    setEditingRace(null);
+    loadData();
+  };
+
   const openResultForm = async (raceId: string) => {
     setSelectedRace(raceId);
     setResultsTab('race');
@@ -378,6 +388,10 @@ export default function AdminChampionship() {
                         }
                       }}>Re-open</button>
                     )}
+                    <button className="btn btn-ghost btn-sm" onClick={() => {
+                      setEditRaceForm({ name: r.name, circuit: r.circuit, date: r.date, weather: r.weather, has_sprint: !!r.has_sprint });
+                      setEditingRace(r);
+                    }}>Edit</button>
                     <button className="btn btn-danger btn-sm" onClick={() => deleteRace(r.id)}>Delete</button>
                   </div>
                 </div>
@@ -515,6 +529,30 @@ export default function AdminChampionship() {
                 Include Sprint race
               </label>
               <button className="btn btn-primary" onClick={addRace}>Add Race</button>
+            </div>
+          </Modal>
+        )}
+
+        {editingRace && (
+          <Modal onClose={() => setEditingRace(null)} title="Edit Race">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <input placeholder="Race name" value={editRaceForm.name} onChange={e => setEditRaceForm(f => ({ ...f, name: e.target.value }))} />
+              <input placeholder="Circuit" value={editRaceForm.circuit} onChange={e => setEditRaceForm(f => ({ ...f, circuit: e.target.value }))} />
+              <input type="date" value={editRaceForm.date} onChange={e => setEditRaceForm(f => ({ ...f, date: e.target.value }))} />
+              <select value={editRaceForm.weather} onChange={e => setEditRaceForm(f => ({ ...f, weather: e.target.value }))}>
+                <option value="Dry">Dry</option>
+                <option value="Wet">Wet</option>
+                <option value="Mixed">Mixed</option>
+              </select>
+              <label className="result-checkbox" style={{ fontSize: '0.85rem' }}>
+                <input type="checkbox" checked={editRaceForm.has_sprint}
+                  onChange={e => setEditRaceForm(f => ({ ...f, has_sprint: e.target.checked }))} />
+                Include Sprint race
+              </label>
+              <div className="flex justify-between mt-2">
+                <button className="btn btn-ghost" onClick={() => setEditingRace(null)}>Cancel</button>
+                <button className="btn btn-primary" onClick={saveRaceEdit}>Save Changes</button>
+              </div>
             </div>
           </Modal>
         )}
