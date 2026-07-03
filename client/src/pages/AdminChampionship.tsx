@@ -74,13 +74,13 @@ export default function AdminChampionship() {
   };
 
   const [showAddRace, setShowAddRace] = useState(false);
-  const [raceForm, setRaceForm] = useState({ name: '', circuit: '', date: '', weather: 'Dry' });
+  const [raceForm, setRaceForm] = useState({ name: '', circuit: '', date: '', weather: 'Dry', has_sprint: false });
 
   const addRace = async () => {
     if (!raceForm.name || !raceForm.circuit || !raceForm.date) return;
-    await api.races.create({ championship_id: id, ...raceForm });
+    await api.races.create({ championship_id: id, ...raceForm, has_sprint: raceForm.has_sprint });
     setShowAddRace(false);
-    setRaceForm({ name: '', circuit: '', date: '', weather: 'Dry' });
+    setRaceForm({ name: '', circuit: '', date: '', weather: 'Dry', has_sprint: false });
     loadData();
   };
 
@@ -93,9 +93,12 @@ export default function AdminChampionship() {
 
   const [selectedRace, setSelectedRace] = useState<string | null>(null);
   const [resultEntries, setResultEntries] = useState<any[]>([]);
+  const [sprintResultEntries, setSprintResultEntries] = useState<any[]>([]);
+  const [resultsTab, setResultsTab] = useState<'race' | 'sprint'>('race');
 
   const openResultForm = async (raceId: string) => {
     setSelectedRace(raceId);
+    setResultsTab('race');
     const race = races.find(r => r.id === raceId);
     if (race?.status === 'completed') {
       const fullRace = await api.races.get(raceId);
@@ -111,8 +114,29 @@ export default function AdminChampionship() {
           penalties: r.penalties || '',
           notes: r.notes || '',
         })));
-        return;
       }
+      if (fullRace.sprint_results?.length > 0) {
+        setSprintResultEntries(fullRace.sprint_results.map((r: any) => ({
+          driver_id: r.driver_id,
+          position: r.position,
+          dnf: !!r.dnf,
+          present: r.present !== 0,
+          penalties: r.penalties || '',
+          notes: r.notes || '',
+        })));
+      } else if (race.has_sprint && drivers.length > 0) {
+        setSprintResultEntries(
+          drivers.map((d, i) => ({
+            driver_id: d.id,
+            position: i + 1,
+            dnf: false,
+            present: true,
+            penalties: '',
+            notes: '',
+          }))
+        );
+      }
+      return;
     }
     if (drivers.length > 0) {
       setResultEntries(
@@ -128,12 +152,28 @@ export default function AdminChampionship() {
           notes: '',
         }))
       );
+      if (race?.has_sprint) {
+        setSprintResultEntries(
+          drivers.map((d, i) => ({
+            driver_id: d.id,
+            position: i + 1,
+            dnf: false,
+            present: true,
+            penalties: '',
+            notes: '',
+          }))
+        );
+      }
     }
   };
 
   const submitResults = async () => {
     if (!selectedRace) return;
     await api.races.submitResults(selectedRace, resultEntries);
+    const race = races.find(r => r.id === selectedRace);
+    if (race?.has_sprint && sprintResultEntries.length > 0) {
+      await api.races.submitSprintResults(selectedRace, sprintResultEntries);
+    }
     setSelectedRace(null);
     loadData();
   };
@@ -351,14 +391,15 @@ export default function AdminChampionship() {
             <div className="card-header">
               <span className="card-title">Scoring System</span>
               <button className="btn btn-primary btn-sm" onClick={() => {
-                if (champ.scoring) setScoringForm({ position_points: JSON.parse(champ.scoring.position_points), pole_bonus: champ.scoring.pole_bonus, fastest_lap_bonus: champ.scoring.fastest_lap_bonus });
-                else setScoringForm({ position_points: [25, 18, 15, 12, 10, 8, 6, 4, 2, 1], pole_bonus: 0, fastest_lap_bonus: 0 });
+                if (champ.scoring) setScoringForm({ position_points: JSON.parse(champ.scoring.position_points), sprint_points: JSON.parse(champ.scoring.sprint_points || '[10,8,6,5,4,3,2,1]'), pole_bonus: champ.scoring.pole_bonus, fastest_lap_bonus: champ.scoring.fastest_lap_bonus });
+                else setScoringForm({ position_points: [25, 18, 15, 12, 10, 8, 6, 4, 2, 1], sprint_points: [10, 8, 6, 5, 4, 3, 2, 1], pole_bonus: 0, fastest_lap_bonus: 0 });
                 setShowScoring(true);
               }}>Edit</button>
             </div>
             {champ.scoring && (
               <div className="text-sm text-secondary" style={{ lineHeight: 1.8 }}>
-                <p>Points per position: <strong className="text-accent">[{JSON.parse(champ.scoring.position_points).join(', ')}]</strong></p>
+                <p>Race points per position: <strong className="text-accent">[{JSON.parse(champ.scoring.position_points).join(', ')}]</strong></p>
+                <p>Sprint points per position: <strong className="text-accent">[{JSON.parse(champ.scoring.sprint_points || '[10,8,6,5,4,3,2,1]').join(', ')}]</strong></p>
                 <p>Pole Position bonus: <strong>{champ.scoring.pole_bonus} pts</strong></p>
                 <p>Fastest Lap bonus: <strong>{champ.scoring.fastest_lap_bonus} pts</strong></p>
               </div>
@@ -468,6 +509,11 @@ export default function AdminChampionship() {
                 <option value="Wet">Wet</option>
                 <option value="Mixed">Mixed</option>
               </select>
+              <label className="result-checkbox" style={{ fontSize: '0.85rem' }}>
+                <input type="checkbox" checked={raceForm.has_sprint}
+                  onChange={e => setRaceForm(f => ({ ...f, has_sprint: e.target.checked }))} />
+                Include Sprint race
+              </label>
               <button className="btn btn-primary" onClick={addRace}>Add Race</button>
             </div>
           </Modal>
@@ -477,6 +523,7 @@ export default function AdminChampionship() {
           <Modal onClose={() => setShowScoring(false)} title="Edit Scoring" wide>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <p className="text-sm text-secondary">Points awarded per finishing position. Use +/- to add/remove scoring positions.</p>
+              <h4 className="font-semibold text-sm mt-2 mb-1">Main Race Points</h4>
               <div className="scoring-grid">
                 {scoringForm.position_points.map((pts: number, i: number) => (
                   <div key={i} className="scoring-item">
@@ -495,6 +542,30 @@ export default function AdminChampionship() {
                     {scoringForm.position_points.length > 1 && i === scoringForm.position_points.length - 1 && (
                       <button className="btn btn-ghost btn-sm" onClick={() => {
                         setScoringForm((f: any) => ({ ...f, position_points: f.position_points.slice(0, -1) }));
+                      }} style={{ padding: '2px 6px', fontSize: '0.78rem', color: 'var(--accent-red)' }}>−</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <h4 className="font-semibold text-sm mt-3 mb-1">Sprint Race Points</h4>
+              <div className="scoring-grid">
+                {scoringForm.sprint_points?.map((pts: number, i: number) => (
+                  <div key={i} className="scoring-item">
+                    <label className="scoring-label">P{i + 1}</label>
+                    <input type="number" value={pts} className="scoring-input"
+                      onChange={e => {
+                        const newArr = [...scoringForm.sprint_points];
+                        newArr[i] = parseInt(e.target.value) || 0;
+                        setScoringForm((f: any) => ({ ...f, sprint_points: newArr }));
+                      }} />
+                    {i === scoringForm.sprint_points.length - 1 && (
+                      <button className="btn btn-ghost btn-sm" onClick={() => {
+                        setScoringForm((f: any) => ({ ...f, sprint_points: [...f.sprint_points, 0] }));
+                      }} style={{ padding: '2px 6px', fontSize: '0.78rem' }}>+</button>
+                    )}
+                    {scoringForm.sprint_points.length > 1 && i === scoringForm.sprint_points.length - 1 && (
+                      <button className="btn btn-ghost btn-sm" onClick={() => {
+                        setScoringForm((f: any) => ({ ...f, sprint_points: f.sprint_points.slice(0, -1) }));
                       }} style={{ padding: '2px 6px', fontSize: '0.78rem', color: 'var(--accent-red)' }}>−</button>
                     )}
                   </div>
@@ -523,101 +594,183 @@ export default function AdminChampionship() {
         {selectedRace && (
           <Modal onClose={() => setSelectedRace(null)} title="Enter Results" wide>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <p className="text-sm text-secondary mb-2">Drag drivers to reorder. Mark absent drivers for reserve substitution.</p>
-              <div style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {resultEntries
-                  .slice()
-                  .sort((a, b) => a.position - b.position)
-                  .map((entry, idx) => {
-                    const driver = drivers.find(d => d.id === entry.driver_id);
-                    const team = driver ? teams.find((t: any) => t.id === driver.team_id) : null;
-                    const reserveDriver = team ? drivers.find(d => d.id === team.reserve_driver_id) : null;
-                    return (
-                      <div key={entry.driver_id} className="result-entry"
-                        draggable
-                        onDragStart={e => { e.dataTransfer.setData('text/plain', entry.driver_id); e.dataTransfer.effectAllowed = 'move'; }}
-                        onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-                        onDrop={e => {
-                          e.preventDefault();
-                          const draggedId = e.dataTransfer.getData('text/plain');
-                          if (draggedId === entry.driver_id) return;
-                          setResultEntries((prev: any[]) => {
-                            const arr = [...prev];
-                            const draggedIdx = arr.findIndex(p => p.driver_id === draggedId);
-                            const targetIdx = arr.findIndex(p => p.driver_id === entry.driver_id);
-                            if (draggedIdx === -1 || targetIdx === -1) return prev;
-                            const [moved] = arr.splice(draggedIdx, 1);
-                            arr.splice(targetIdx, 0, moved);
-                            return arr.map((p, i) => ({ ...p, position: i + 1 }));
-                          });
-                        }}
-                        style={{
-                          opacity: entry.present === false ? 0.6 : 1,
-                          background: entry.dnf ? 'var(--accent-red-light)' : entry.present === false ? 'var(--accent-orange-light)' : 'var(--bg-secondary)',
-                        }}>
-                        <span className="result-pos">P{entry.position}{entry.position === 1 ? ' 🏆' : ''}</span>
-                        <span className="team-dot" style={{ background: team?.color || 'var(--text-muted)' }} />
-                        <span className="result-driver" style={{ fontWeight: 500, flex: 1 }}>
-                          {driver?.name || entry.driver_id}
-                          {entry.present === false && reserveDriver && (
-                            <span className="text-xs text-accent-orange" style={{ marginLeft: 6 }}>
-                              → reserve: {reserveDriver.name}
-                            </span>
-                          )}
-                        </span>
-                        <label className="result-checkbox present-checkbox">
-                          <input type="checkbox" checked={entry.present !== false}
-                            onChange={e => {
-                              const checked = e.target.checked;
-                              setResultEntries((prev: any[]) =>
-                                prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, present: checked, dnf: checked ? p.dnf : false } : p)
-                              );
-                            }} />
-                          Present
-                        </label>
-                        <label className="result-checkbox">
-                          <input type="checkbox" checked={entry.pole_position}
-                            disabled={entry.present === false}
-                            onChange={e => setResultEntries((prev: any[]) =>
-                              prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, pole_position: e.target.checked } : p)
-                            )} />
-                          Pole
-                        </label>
-                        <label className="result-checkbox">
-                          <input type="radio" name={`fl-${selectedRace}`} checked={entry.fastest_lap}
-                            disabled={entry.present === false}
-                            onChange={() => setResultEntries((prev: any[]) =>
-                              prev.map((p: any) => ({ ...p, fastest_lap: p.driver_id === entry.driver_id }))
-                            )} />
-                          FL
-                        </label>
-                        <label className="result-checkbox">
-                          <input type="checkbox" checked={entry.dnf}
-                            disabled={entry.present === false}
-                            onChange={e => setResultEntries((prev: any[]) =>
-                              prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, dnf: e.target.checked } : p)
-                            )} />
-                          DNF
-                        </label>
-                        <input type="number" value={entry.qualifying_position}
-                          onChange={e => {
-                            const val = e.target.value;
-                            setResultEntries((prev: any[]) =>
-                              prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, qualifying_position: val === '' ? '' : parseInt(val) || 1 } : p)
-                            );
-                          }}
-                          className="result-ql-input" placeholder="QL" />
-                        <input value={entry.penalties} onChange={e => setResultEntries((prev: any[]) =>
-                          prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, penalties: e.target.value } : p)
-                        )} className="result-pen-input" placeholder="Pen." />
+              {(() => {
+                const race = races.find(r => r.id === selectedRace);
+                const hasSprint = race?.has_sprint;
+                return (
+                  <>
+                    {hasSprint && (
+                      <div className="tabs" style={{ marginBottom: 8 }}>
+                        <button className={`tab ${resultsTab === 'race' ? 'active' : ''}`} onClick={() => setResultsTab('race')}>Main Race</button>
+                        <button className={`tab ${resultsTab === 'sprint' ? 'active' : ''}`} onClick={() => setResultsTab('sprint')}>Sprint</button>
                       </div>
-                    );
-                  })}
-              </div>
-              <div className="flex justify-between mt-3">
-                <button className="btn btn-ghost" onClick={() => setSelectedRace(null)}>Cancel</button>
-                <button className="btn btn-primary" onClick={submitResults}>Save Results</button>
-              </div>
+                    )}
+                    {resultsTab === 'sprint' ? (
+                      <>
+                        <p className="text-sm text-secondary mb-2">Drag drivers to reorder for sprint classification.</p>
+                        <div style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {sprintResultEntries
+                            .slice()
+                            .sort((a, b) => a.position - b.position)
+                            .map((entry, idx) => {
+                              const driver = drivers.find(d => d.id === entry.driver_id);
+                              const team = driver ? teams.find((t: any) => t.id === driver.team_id) : null;
+                              return (
+                                <div key={entry.driver_id} className="result-entry"
+                                  draggable
+                                  onDragStart={e => { e.dataTransfer.setData('text/plain', entry.driver_id); e.dataTransfer.effectAllowed = 'move'; }}
+                                  onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                                  onDrop={e => {
+                                    e.preventDefault();
+                                    const draggedId = e.dataTransfer.getData('text/plain');
+                                    if (draggedId === entry.driver_id) return;
+                                    setSprintResultEntries((prev: any[]) => {
+                                      const arr = [...prev];
+                                      const draggedIdx = arr.findIndex(p => p.driver_id === draggedId);
+                                      const targetIdx = arr.findIndex(p => p.driver_id === entry.driver_id);
+                                      if (draggedIdx === -1 || targetIdx === -1) return prev;
+                                      const [moved] = arr.splice(draggedIdx, 1);
+                                      arr.splice(targetIdx, 0, moved);
+                                      return arr.map((p, i) => ({ ...p, position: i + 1 }));
+                                    });
+                                  }}
+                                  style={{
+                                    opacity: entry.present === false ? 0.6 : 1,
+                                    background: entry.dnf ? 'var(--accent-red-light)' : entry.present === false ? 'var(--accent-orange-light)' : 'var(--bg-secondary)',
+                                  }}>
+                                  <span className="result-pos">P{entry.position}</span>
+                                  <span className="team-dot" style={{ background: team?.color || 'var(--text-muted)' }} />
+                                  <span className="result-driver" style={{ fontWeight: 500, flex: 1 }}>
+                                    {driver?.name || entry.driver_id}
+                                  </span>
+                                  <label className="result-checkbox present-checkbox">
+                                    <input type="checkbox" checked={entry.present !== false}
+                                      onChange={e => {
+                                        const checked = e.target.checked;
+                                        setSprintResultEntries((prev: any[]) =>
+                                          prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, present: checked, dnf: checked ? p.dnf : false } : p)
+                                        );
+                                      }} />
+                                    Present
+                                  </label>
+                                  <label className="result-checkbox">
+                                    <input type="checkbox" checked={entry.dnf}
+                                      disabled={entry.present === false}
+                                      onChange={e => setSprintResultEntries((prev: any[]) =>
+                                        prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, dnf: e.target.checked } : p)
+                                      )} />
+                                    DNF
+                                  </label>
+                                  <input value={entry.penalties} onChange={e => setSprintResultEntries((prev: any[]) =>
+                                    prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, penalties: e.target.value } : p)
+                                  )} className="result-pen-input" placeholder="Pen." />
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-secondary mb-2">Drag drivers to reorder. Mark absent drivers for reserve substitution.</p>
+                        <div style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {resultEntries
+                            .slice()
+                            .sort((a, b) => a.position - b.position)
+                            .map((entry, idx) => {
+                              const driver = drivers.find(d => d.id === entry.driver_id);
+                              const team = driver ? teams.find((t: any) => t.id === driver.team_id) : null;
+                              const reserveDriver = team ? drivers.find(d => d.id === team.reserve_driver_id) : null;
+                              return (
+                                <div key={entry.driver_id} className="result-entry"
+                                  draggable
+                                  onDragStart={e => { e.dataTransfer.setData('text/plain', entry.driver_id); e.dataTransfer.effectAllowed = 'move'; }}
+                                  onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                                  onDrop={e => {
+                                    e.preventDefault();
+                                    const draggedId = e.dataTransfer.getData('text/plain');
+                                    if (draggedId === entry.driver_id) return;
+                                    setResultEntries((prev: any[]) => {
+                                      const arr = [...prev];
+                                      const draggedIdx = arr.findIndex(p => p.driver_id === draggedId);
+                                      const targetIdx = arr.findIndex(p => p.driver_id === entry.driver_id);
+                                      if (draggedIdx === -1 || targetIdx === -1) return prev;
+                                      const [moved] = arr.splice(draggedIdx, 1);
+                                      arr.splice(targetIdx, 0, moved);
+                                      return arr.map((p, i) => ({ ...p, position: i + 1 }));
+                                    });
+                                  }}
+                                  style={{
+                                    opacity: entry.present === false ? 0.6 : 1,
+                                    background: entry.dnf ? 'var(--accent-red-light)' : entry.present === false ? 'var(--accent-orange-light)' : 'var(--bg-secondary)',
+                                  }}>
+                                  <span className="result-pos">P{entry.position}{entry.position === 1 ? ' 🏆' : ''}</span>
+                                  <span className="team-dot" style={{ background: team?.color || 'var(--text-muted)' }} />
+                                  <span className="result-driver" style={{ fontWeight: 500, flex: 1 }}>
+                                    {driver?.name || entry.driver_id}
+                                    {entry.present === false && reserveDriver && (
+                                      <span className="text-xs text-accent-orange" style={{ marginLeft: 6 }}>
+                                        → reserve: {reserveDriver.name}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <label className="result-checkbox present-checkbox">
+                                    <input type="checkbox" checked={entry.present !== false}
+                                      onChange={e => {
+                                        const checked = e.target.checked;
+                                        setResultEntries((prev: any[]) =>
+                                          prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, present: checked, dnf: checked ? p.dnf : false } : p)
+                                        );
+                                      }} />
+                                    Present
+                                  </label>
+                                  <label className="result-checkbox">
+                                    <input type="checkbox" checked={entry.pole_position}
+                                      disabled={entry.present === false}
+                                      onChange={e => setResultEntries((prev: any[]) =>
+                                        prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, pole_position: e.target.checked } : p)
+                                      )} />
+                                    Pole
+                                  </label>
+                                  <label className="result-checkbox">
+                                    <input type="radio" name={`fl-${selectedRace}`} checked={entry.fastest_lap}
+                                      disabled={entry.present === false}
+                                      onChange={() => setResultEntries((prev: any[]) =>
+                                        prev.map((p: any) => ({ ...p, fastest_lap: p.driver_id === entry.driver_id }))
+                                      )} />
+                                    FL
+                                  </label>
+                                  <label className="result-checkbox">
+                                    <input type="checkbox" checked={entry.dnf}
+                                      disabled={entry.present === false}
+                                      onChange={e => setResultEntries((prev: any[]) =>
+                                        prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, dnf: e.target.checked } : p)
+                                      )} />
+                                    DNF
+                                  </label>
+                                  <input type="number" value={entry.qualifying_position}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      setResultEntries((prev: any[]) =>
+                                        prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, qualifying_position: val === '' ? '' : parseInt(val) || 1 } : p)
+                                      );
+                                    }}
+                                    className="result-ql-input" placeholder="QL" />
+                                  <input value={entry.penalties} onChange={e => setResultEntries((prev: any[]) =>
+                                    prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, penalties: e.target.value } : p)
+                                  )} className="result-pen-input" placeholder="Pen." />
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </>
+                    )}
+                    <div className="flex justify-between mt-3">
+                      <button className="btn btn-ghost" onClick={() => setSelectedRace(null)}>Cancel</button>
+                      <button className="btn btn-primary" onClick={submitResults}>Save Results</button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </Modal>
         )}

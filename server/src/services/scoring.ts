@@ -41,6 +41,19 @@ export async function recalculateChampionship(championshipId: string): Promise<v
         teamStats[driver.team_id] += r.points;
       }
     }
+
+    const sprintRes = await db.query('SELECT * FROM sprint_results WHERE race_id = $1 ORDER BY position ASC', [race.id]) as any[];
+    for (const sr of sprintRes) {
+      const ds = driverStats[sr.driver_id];
+      if (!ds) continue;
+      ds.points += sr.points;
+      ds.racesDone += 1;
+
+      const driver = await db.queryOne('SELECT team_id FROM drivers WHERE id = $1', [sr.driver_id]) as any;
+      if (driver?.team_id && teamStats[driver.team_id] !== undefined) {
+        teamStats[driver.team_id] += sr.points;
+      }
+    }
   }
 
   const sortedDrivers = Object.entries(driverStats)

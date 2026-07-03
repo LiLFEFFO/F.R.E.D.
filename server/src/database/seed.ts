@@ -30,8 +30,8 @@ export default async function seed() {
 
   const scoringId = uuidv4();
   await db.execute(
-    'INSERT INTO scoring_systems (id, championship_id, position_points, pole_bonus, fastest_lap_bonus) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
-    [scoringId, champId, JSON.stringify([25, 18, 15, 12, 10, 8, 6, 4, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 1, 1]
+    'INSERT INTO scoring_systems (id, championship_id, position_points, sprint_points, pole_bonus, fastest_lap_bonus) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
+    [scoringId, champId, JSON.stringify([25, 18, 15, 12, 10, 8, 6, 4, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), JSON.stringify([10, 8, 6, 5, 4, 3, 2, 1]), 1, 1]
   );
 
   const teams = [

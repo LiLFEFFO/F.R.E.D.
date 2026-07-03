@@ -33,8 +33,26 @@ export interface ScoringSystem {
   id: string;
   championship_id: string;
   position_points: string;
+  sprint_points: string;
   pole_bonus: number;
   fastest_lap_bonus: number;
+}
+
+export interface SprintResult {
+  id: string;
+  race_id: string;
+  driver_id: string;
+  position: number;
+  points: number;
+  dnf: boolean;
+  present: boolean;
+  penalties: string;
+  notes: string;
+  driver_name?: string;
+  driver_number?: number;
+  driver_avatar?: string;
+  team_name?: string;
+  team_color?: string;
 }
 
 export interface Team {
@@ -78,6 +96,8 @@ export interface Race {
   date: string;
   weather: string;
   status: 'scheduled' | 'in_progress' | 'completed';
+  has_sprint?: boolean;
+  sprint_results?: SprintResult[];
   results?: RaceResult[];
 }
 

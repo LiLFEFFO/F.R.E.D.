@@ -49,6 +49,7 @@ export async function initSchema() {
       id TEXT PRIMARY KEY,
       championship_id TEXT NOT NULL REFERENCES championships(id) ON DELETE CASCADE,
       position_points TEXT NOT NULL DEFAULT '[25,18,15,12,10,8,6,4,2,1]',
+      sprint_points TEXT NOT NULL DEFAULT '[10,8,6,5,4,3,2,1]',
       pole_bonus INTEGER DEFAULT 0,
       fastest_lap_bonus INTEGER DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -85,6 +86,7 @@ export async function initSchema() {
       date TEXT NOT NULL,
       weather TEXT DEFAULT 'Dry',
       status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled','in_progress','completed')),
+      has_sprint INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -100,6 +102,19 @@ export async function initSchema() {
       dnf INTEGER NOT NULL DEFAULT 0,
       present INTEGER NOT NULL DEFAULT 1,
       qualifying_position INTEGER DEFAULT NULL,
+      penalties TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS sprint_results (
+      id TEXT PRIMARY KEY,
+      race_id TEXT NOT NULL REFERENCES races(id) ON DELETE CASCADE,
+      driver_id TEXT NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL,
+      points REAL NOT NULL DEFAULT 0,
+      dnf INTEGER NOT NULL DEFAULT 0,
+      present INTEGER NOT NULL DEFAULT 1,
       penalties TEXT DEFAULT '',
       notes TEXT DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

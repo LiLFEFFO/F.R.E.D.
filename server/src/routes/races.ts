@@ -28,18 +28,29 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
     WHERE rr.race_id = $1 ORDER BY rr.position ASC
   `, [race.id]);
 
+  let sprint_results: any[] = [];
+  if (race.has_sprint) {
+    sprint_results = await db.query(`
+      SELECT sr.*, d.name as driver_name, d.number as driver_number, d.avatar, d.team_id,
+        t.name as team_name, t.color as team_color
+      FROM sprint_results sr JOIN drivers d ON sr.driver_id = d.id
+      LEFT JOIN teams t ON d.team_id = t.id
+      WHERE sr.race_id = $1 ORDER BY sr.position ASC
+    `, [race.id]);
+  }
+
   const sc = await db.queryOne('SELECT * FROM scoring_systems WHERE championship_id = $1', [race.championship_id]);
-  res.json({ ...race, results, scoring: sc });
+  res.json({ ...race, results, sprint_results, scoring: sc });
 }));
 
 router.post('/', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { championship_id, name, circuit, date, weather } = req.body;
+  const { championship_id, name, circuit, date, weather, has_sprint } = req.body;
   if (!championship_id || !name || !circuit || !date) { res.status(400).json({ error: 'Missing required fields' }); return; }
   const champ = await db.queryOne('SELECT id FROM championships WHERE id = $1 AND created_by = $2', [championship_id, req.user!.id]);
   if (!champ) { res.status(403).json({ error: 'Not authorized' }); return; }
   const id = uuidv4();
-  await db.execute('INSERT INTO races (id, championship_id, name, circuit, date, weather) VALUES ($1, $2, $3, $4, $5, $6)',
-    [id, championship_id, name, circuit, date, weather || 'Dry']);
+  await db.execute('INSERT INTO races (id, championship_id, name, circuit, date, weather, has_sprint) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    [id, championship_id, name, circuit, date, weather || 'Dry', has_sprint ? 1 : 0]);
   res.status(201).json(await db.queryOne('SELECT * FROM races WHERE id = $1', [id]));
 }));
 
@@ -47,9 +58,9 @@ router.put('/:id', authenticate, requireElite, asyncHandler(async (req: AuthRequ
   const race = await db.queryOne('SELECT r.* FROM races r JOIN championships c ON r.championship_id = c.id WHERE r.id = $1 AND c.created_by = $2',
     [req.params.id, req.user!.id]) as any;
   if (!race) { res.status(403).json({ error: 'Not authorized' }); return; }
-  const { name, circuit, date, weather, status } = req.body;
-  await db.execute(`UPDATE races SET name = COALESCE($1, name), circuit = COALESCE($2, circuit), date = COALESCE($3, date), weather = COALESCE($4, weather), status = COALESCE($5, status), updated_at = NOW() WHERE id = $6`,
-    [name, circuit, date, weather, status, req.params.id]);
+  const { name, circuit, date, weather, status, has_sprint } = req.body;
+  await db.execute(`UPDATE races SET name = COALESCE($1, name), circuit = COALESCE($2, circuit), date = COALESCE($3, date), weather = COALESCE($4, weather), status = COALESCE($5, status), has_sprint = COALESCE($6, has_sprint), updated_at = NOW() WHERE id = $7`,
+    [name, circuit, date, weather, status, has_sprint != null ? (has_sprint ? 1 : 0) : undefined, req.params.id]);
   res.json(await db.queryOne('SELECT * FROM races WHERE id = $1', [req.params.id]));
 }));
 
@@ -112,12 +123,54 @@ router.post('/:id/results', authenticate, requireElite, asyncHandler(async (req:
   res.json({ race_id: race.id, results: updatedResults });
 }));
 
+router.post('/:id/sprint-results', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const race = await db.queryOne('SELECT r.*, c.created_by as owner_id FROM races r JOIN championships c ON r.championship_id = c.id WHERE r.id = $1',
+    [req.params.id]) as any;
+  if (!race || race.owner_id !== req.user!.id) { res.status(403).json({ error: 'Not authorized' }); return; }
+  if (!race.has_sprint) { res.status(400).json({ error: 'This race does not have a sprint session' }); return; }
+
+  const sc = await db.queryOne('SELECT * FROM scoring_systems WHERE championship_id = $1', [race.championship_id]) as any;
+  const pointsArray = sc ? JSON.parse(sc.sprint_points) : [10, 8, 6, 5, 4, 3, 2, 1];
+
+  const { results } = req.body;
+  if (!results || !Array.isArray(results)) { res.status(400).json({ error: 'Results array required' }); return; }
+
+  await db.execute('DELETE FROM sprint_results WHERE race_id = $1', [race.id]);
+
+  for (const r of results) {
+    const basePoints = (!r.dnf && r.present !== false && r.position <= pointsArray.length) ? pointsArray[r.position - 1] : 0;
+
+    await db.execute(`
+      INSERT INTO sprint_results (id, race_id, driver_id, position, points, dnf, present, penalties, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, [uuidv4(), race.id, r.driver_id, r.position, basePoints,
+        r.dnf ? 1 : 0, r.present !== false ? 1 : 0,
+        r.penalties || '', r.notes || ''
+    ]);
+  }
+
+  if (race.status !== 'completed') {
+    await db.execute("UPDATE races SET status = 'in_progress', updated_at = NOW() WHERE id = $1", [race.id]);
+  }
+
+  await recalculateChampionship(race.championship_id);
+
+  const updatedResults = await db.query(`
+    SELECT sr.*, d.name as driver_name, d.number as driver_number
+    FROM sprint_results sr JOIN drivers d ON sr.driver_id = d.id
+    WHERE sr.race_id = $1 ORDER BY sr.position ASC
+  `, [race.id]);
+
+  res.json({ race_id: race.id, sprint_results: updatedResults });
+}));
+
 router.put('/:id/reopen', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
   const race = await db.queryOne('SELECT r.*, c.created_by as owner_id FROM races r JOIN championships c ON r.championship_id = c.id WHERE r.id = $1',
     [req.params.id]) as any;
   if (!race || race.owner_id !== req.user!.id) { res.status(403).json({ error: 'Not authorized' }); return; }
   await db.execute("UPDATE races SET status = 'scheduled', updated_at = NOW() WHERE id = $1", [race.id]);
   await db.execute('DELETE FROM race_results WHERE race_id = $1', [race.id]);
+  await db.execute('DELETE FROM sprint_results WHERE race_id = $1', [race.id]);
   res.json(await db.queryOne('SELECT * FROM races WHERE id = $1', [race.id]));
 }));
 

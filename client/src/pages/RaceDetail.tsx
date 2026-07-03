@@ -69,6 +69,40 @@ export default function RaceDetail() {
           </div>
         )}
 
+        {race.has_sprint && race.sprint_results?.length > 0 && (
+          <div className="card mb-6">
+            <div className="card-header">
+              <span className="card-title">Sprint Classification</span>
+            </div>
+            <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Pos</th><th>Driver</th><th>No.</th><th>Team</th><th>Points</th><th>DNF</th><th>Penalties</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(race.sprint_results || []).map((r: any) => (
+                    <tr key={r.id} className={r.position <= 3 ? 'podium-row' : ''}>
+                      <td className="pos-cell">
+                        <span className={`pos-badge ${r.position === 1 ? 'gold' : r.position === 2 ? 'silver' : r.position === 3 ? 'bronze' : ''}`}>
+                          {r.position}°
+                        </span>
+                      </td>
+                      <td><Link to={`/drivers/${r.driver_id}`} className="driver-link">{r.driver_name}</Link></td>
+                      <td className="text-muted text-sm">#{r.driver_number}</td>
+                      <td><span className="team-dot" style={{ background: r.team_color || 'var(--text-muted)' }} />{r.team_name || '-'}</td>
+                      <td className="font-bold">{r.points}</td>
+                      <td>{r.dnf ? <span className="badge badge-red">DNF</span> : '—'}</td>
+                      <td className="text-red text-sm">{r.penalties || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <div className="card">
           <div className="card-header">
             <span className="card-title">Classification</span>

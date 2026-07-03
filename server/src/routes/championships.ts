@@ -123,12 +123,13 @@ router.get('/:id/standings', optionalAuth, asyncHandler(async (req: AuthRequest,
 router.put('/:id/scoring', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
   const champ = await db.queryOne('SELECT id FROM championships WHERE id = $1 AND created_by = $2', [req.params.id, req.user!.id]);
   if (!champ) { res.status(403).json({ error: 'Not authorized' }); return; }
-  const { position_points, pole_bonus, fastest_lap_bonus } = req.body;
+  const { position_points, sprint_points, pole_bonus, fastest_lap_bonus } = req.body;
   await db.execute(`
     UPDATE scoring_systems SET position_points = COALESCE($1, position_points),
-    pole_bonus = COALESCE($2, pole_bonus), fastest_lap_bonus = COALESCE($3, fastest_lap_bonus),
-    updated_at = NOW() WHERE championship_id = $4
-  `, [position_points ? JSON.stringify(position_points) : null, pole_bonus, fastest_lap_bonus, req.params.id]);
+    sprint_points = COALESCE($2, sprint_points),
+    pole_bonus = COALESCE($3, pole_bonus), fastest_lap_bonus = COALESCE($4, fastest_lap_bonus),
+    updated_at = NOW() WHERE championship_id = $5
+  `, [position_points ? JSON.stringify(position_points) : null, sprint_points ? JSON.stringify(sprint_points) : null, pole_bonus, fastest_lap_bonus, req.params.id]);
   res.json(await db.queryOne('SELECT * FROM scoring_systems WHERE championship_id = $1', [req.params.id]));
 }));
 

@@ -71,6 +71,8 @@ export const api = {
     delete: (id: string) => request(`/races/${id}`, { method: 'DELETE' }),
     submitResults: (id: string, results: any[]) =>
       request(`/races/${id}/results`, { method: 'POST', body: JSON.stringify({ results }) }),
+    submitSprintResults: (id: string, results: any[]) =>
+      request(`/races/${id}/sprint-results`, { method: 'POST', body: JSON.stringify({ results }) }),
     export: (id: string, format: string) => request(`/races/${id}/export?format=${format}`),
     reopen: (id: string) => request(`/races/${id}/reopen`, { method: 'PUT' }),
   },

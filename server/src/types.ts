@@ -27,6 +27,7 @@ export interface ScoringSystem {
   id: string;
   championship_id: string;
   position_points: string;
+  sprint_points: string;
   pole_bonus: number;
   fastest_lap_bonus: number;
   created_at: string;
@@ -62,6 +63,7 @@ export interface Race {
   date: string;
   weather: string;
   status: 'scheduled' | 'in_progress' | 'completed';
+  has_sprint: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -111,6 +113,19 @@ export interface Notification {
   message: string;
   type: string;
   read: boolean;
+  created_at: string;
+}
+
+export interface SprintResult {
+  id: string;
+  race_id: string;
+  driver_id: string;
+  position: number;
+  points: number;
+  dnf: boolean;
+  present: boolean;
+  penalties: string;
+  notes: string;
   created_at: string;
 }
 
