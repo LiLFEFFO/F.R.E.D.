@@ -6,8 +6,12 @@ export async function canManageChampionship(championshipId: string, userId: stri
   const champ = await db.queryOne('SELECT created_by FROM championships WHERE id = $1', [championshipId]) as any;
   if (!champ) return false;
   if (champ.created_by === userId) return true;
-  const collab = await db.queryOne('SELECT id FROM championship_collaborators WHERE championship_id = $1 AND user_id = $2', [championshipId, userId]);
-  return !!collab;
+  try {
+    const collab = await db.queryOne('SELECT id FROM championship_collaborators WHERE championship_id = $1 AND user_id = $2', [championshipId, userId]);
+    return !!collab;
+  } catch {
+    return false;
+  }
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fred-super-secret-key-2024';

@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../database/schema';
-import { authenticate, requireElite, optionalAuth, AuthRequest } from '../middleware/auth';
+import { authenticate, requireElite, optionalAuth, AuthRequest, canManageChampionship } from '../middleware/auth';
 import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
@@ -24,8 +24,9 @@ router.get('/', optionalAuth, asyncHandler(async (req: AuthRequest, res: Respons
 router.post('/', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
   const { championship_id, name, color, logo, livery, reserve_driver_id } = req.body;
   if (!championship_id || !name) { res.status(400).json({ error: 'Championship and name required' }); return; }
-  const champ = await db.queryOne('SELECT id FROM championships WHERE id = $1 AND created_by = $2', [championship_id, req.user!.id]);
-  if (!champ) { res.status(403).json({ error: 'Not authorized' }); return; }
+  if (!await canManageChampionship(championship_id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
   const id = uuidv4();
   await db.execute('INSERT INTO teams (id, championship_id, name, color, logo, livery, reserve_driver_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
     [id, championship_id, name, color || '#e10600', logo || '', livery || '', reserve_driver_id || null]);
@@ -33,9 +34,11 @@ router.post('/', authenticate, requireElite, asyncHandler(async (req: AuthReques
 }));
 
 router.put('/:id', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const team = await db.queryOne('SELECT t.* FROM teams t JOIN championships c ON t.championship_id = c.id WHERE t.id = $1 AND c.created_by = $2',
-    [req.params.id, req.user!.id]) as any;
-  if (!team) { res.status(403).json({ error: 'Not authorized' }); return; }
+  const team = await db.queryOne('SELECT t.* FROM teams t WHERE t.id = $1', [req.params.id]) as any;
+  if (!team) { res.status(404).json({ error: 'Team not found' }); return; }
+  if (!await canManageChampionship(team.championship_id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
   const { name, color, logo, livery, reserve_driver_id } = req.body;
   await db.execute('UPDATE teams SET name = COALESCE($1, name), color = COALESCE($2, color), logo = COALESCE($3, logo), livery = COALESCE($4, livery), reserve_driver_id = COALESCE($5, reserve_driver_id) WHERE id = $6',
     [name, color, logo, livery, reserve_driver_id ?? null, req.params.id]);
@@ -43,9 +46,11 @@ router.put('/:id', authenticate, requireElite, asyncHandler(async (req: AuthRequ
 }));
 
 router.delete('/:id', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const team = await db.queryOne('SELECT t.id FROM teams t JOIN championships c ON t.championship_id = c.id WHERE t.id = $1 AND c.created_by = $2',
-    [req.params.id, req.user!.id]);
-  if (!team) { res.status(403).json({ error: 'Not authorized' }); return; }
+  const team = await db.queryOne('SELECT t.id, t.championship_id FROM teams t WHERE t.id = $1', [req.params.id]) as any;
+  if (!team) { res.status(404).json({ error: 'Team not found' }); return; }
+  if (!await canManageChampionship(team.championship_id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
   await db.execute('DELETE FROM teams WHERE id = $1', [req.params.id]);
   res.json({ message: 'Team deleted' });
 }));
