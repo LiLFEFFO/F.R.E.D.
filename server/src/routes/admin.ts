@@ -7,12 +7,13 @@ const router = Router();
 
 router.get('/my-championships', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
   const championships = await db.query(`
-    SELECT c.*,
+    SELECT DISTINCT c.*,
       (SELECT COUNT(*) FROM drivers WHERE championship_id = c.id)::int as driver_count,
       (SELECT COUNT(*) FROM teams WHERE championship_id = c.id)::int as team_count,
       (SELECT COUNT(*) FROM races WHERE championship_id = c.id)::int as race_count,
       (SELECT COUNT(*) FROM races WHERE championship_id = c.id AND status = 'completed')::int as completed_races
-    FROM championships c WHERE c.created_by = $1
+    FROM championships c LEFT JOIN championship_collaborators cc ON c.id = cc.championship_id
+    WHERE c.created_by = $1 OR cc.user_id = $1
     ORDER BY c.updated_at DESC
   `, [req.user!.id]);
   res.json(championships);
@@ -20,11 +21,12 @@ router.get('/my-championships', authenticate, requireElite, asyncHandler(async (
 
 router.get('/dashboard', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
   const championships = await db.query(`
-    SELECT c.id, c.name, c.season, c.status,
+    SELECT DISTINCT c.id, c.name, c.season, c.status,
       (SELECT COUNT(*) FROM drivers WHERE championship_id = c.id)::int as drivers,
       (SELECT COUNT(*) FROM races WHERE championship_id = c.id)::int as races,
       (SELECT COUNT(*) FROM races WHERE championship_id = c.id AND status = 'completed')::int as completed
-    FROM championships c WHERE c.created_by = $1
+    FROM championships c LEFT JOIN championship_collaborators cc ON c.id = cc.championship_id
+    WHERE c.created_by = $1 OR cc.user_id = $1
     ORDER BY c.updated_at DESC
   `, [req.user!.id]) as any[];
 
@@ -37,7 +39,8 @@ router.get('/dashboard', authenticate, requireElite, asyncHandler(async (req: Au
     FROM race_results rr JOIN races r ON rr.race_id = r.id
     JOIN championships c ON r.championship_id = c.id
     JOIN drivers d ON rr.driver_id = d.id
-    WHERE c.created_by = $1
+    LEFT JOIN championship_collaborators cc ON c.id = cc.championship_id
+    WHERE c.created_by = $1 OR cc.user_id = $1
     ORDER BY rr.created_at DESC LIMIT 20
   `, [req.user!.id]);
 
@@ -58,6 +61,11 @@ router.get('/users', authenticate, requireElite, asyncHandler(async (req: AuthRe
   if (search) { query += ' WHERE username LIKE $1 OR email LIKE $2'; params.push(`%${search}%`, `%${search}%`); }
   query += ' ORDER BY created_at DESC LIMIT 50';
   res.json(await db.query(query, params));
+}));
+
+router.get('/elite-users', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const users = await db.query("SELECT id, username, email, avatar FROM users WHERE role = 'elite' AND id != $1 ORDER BY username ASC", [req.user!.id]);
+  res.json(users);
 }));
 
 router.put('/users/:id/role', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {

@@ -45,6 +45,11 @@ export const api = {
     updateScoring: (id: string, data: any) => request(`/championships/${id}/scoring`, { method: 'PUT', body: JSON.stringify(data) }),
     titleScenarios: (id: string) => request(`/championships/${id}/title-scenarios`),
     recalculate: (id: string) => request(`/championships/${id}/recalculate`, { method: 'POST' }),
+    getCollaborators: (id: string) => request(`/championships/${id}/collaborators`),
+    addCollaborator: (id: string, userId: string) =>
+      request(`/championships/${id}/collaborators`, { method: 'POST', body: JSON.stringify({ user_id: userId }) }),
+    removeCollaborator: (id: string, userId: string) =>
+      request(`/championships/${id}/collaborators/${userId}`, { method: 'DELETE' }),
   },
   drivers: {
     list: (params?: { championship_id?: string; search?: string }) => {
@@ -83,6 +88,7 @@ export const api = {
     users: (search?: string) => request(`/admin/users${search ? `?search=${search}` : ''}`),
     setUserRole: (userId: string, role: string) =>
       request(`/admin/users/${userId}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
+    eliteUsers: () => request('/admin/elite-users'),
   },
   notifications: {
     list: () => request('/notifications'),

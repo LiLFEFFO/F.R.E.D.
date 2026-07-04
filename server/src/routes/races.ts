@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../database/schema';
-import { authenticate, requireElite, optionalAuth, AuthRequest } from '../middleware/auth';
+import { authenticate, requireElite, optionalAuth, AuthRequest, canManageChampionship } from '../middleware/auth';
 import { recalculateChampionship } from '../services/scoring';
 import { asyncHandler } from '../utils/asyncHandler';
 
@@ -46,8 +46,9 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
 router.post('/', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
   const { championship_id, name, circuit, date, weather, has_sprint } = req.body;
   if (!championship_id || !name || !circuit || !date) { res.status(400).json({ error: 'Missing required fields' }); return; }
-  const champ = await db.queryOne('SELECT id FROM championships WHERE id = $1 AND created_by = $2', [championship_id, req.user!.id]);
-  if (!champ) { res.status(403).json({ error: 'Not authorized' }); return; }
+  if (!await canManageChampionship(championship_id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
   const id = uuidv4();
   await db.execute('INSERT INTO races (id, championship_id, name, circuit, date, weather, has_sprint) VALUES ($1, $2, $3, $4, $5, $6, $7)',
     [id, championship_id, name, circuit, date, weather || 'Dry', has_sprint ? 1 : 0]);
@@ -55,9 +56,11 @@ router.post('/', authenticate, requireElite, asyncHandler(async (req: AuthReques
 }));
 
 router.put('/:id', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const race = await db.queryOne('SELECT r.* FROM races r JOIN championships c ON r.championship_id = c.id WHERE r.id = $1 AND c.created_by = $2',
-    [req.params.id, req.user!.id]) as any;
-  if (!race) { res.status(403).json({ error: 'Not authorized' }); return; }
+  const race = await db.queryOne('SELECT r.* FROM races r WHERE r.id = $1', [req.params.id]) as any;
+  if (!race) { res.status(404).json({ error: 'Race not found' }); return; }
+  if (!await canManageChampionship(race.championship_id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
   const { name, circuit, date, weather, status, has_sprint } = req.body;
   await db.execute(`UPDATE races SET name = COALESCE($1, name), circuit = COALESCE($2, circuit), date = COALESCE($3, date), weather = COALESCE($4, weather), status = COALESCE($5, status), has_sprint = COALESCE($6, has_sprint), updated_at = NOW() WHERE id = $7`,
     [name, circuit, date, weather, status, has_sprint != null ? (has_sprint ? 1 : 0) : undefined, req.params.id]);
@@ -65,9 +68,11 @@ router.put('/:id', authenticate, requireElite, asyncHandler(async (req: AuthRequ
 }));
 
 router.delete('/:id', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const race = await db.queryOne('SELECT r.id, r.championship_id FROM races r JOIN championships c ON r.championship_id = c.id WHERE r.id = $1 AND c.created_by = $2',
-    [req.params.id, req.user!.id]) as any;
-  if (!race) { res.status(403).json({ error: 'Not authorized' }); return; }
+  const race = await db.queryOne('SELECT r.id, r.championship_id FROM races r WHERE r.id = $1', [req.params.id]) as any;
+  if (!race) { res.status(404).json({ error: 'Race not found' }); return; }
+  if (!await canManageChampionship(race.championship_id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
   await db.execute('DELETE FROM races WHERE id = $1', [req.params.id]);
   await db.execute('DELETE FROM race_results WHERE race_id = $1', [req.params.id]);
   await recalculateChampionship(race.championship_id);
@@ -75,9 +80,11 @@ router.delete('/:id', authenticate, requireElite, asyncHandler(async (req: AuthR
 }));
 
 router.post('/:id/results', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const race = await db.queryOne('SELECT r.*, c.created_by as owner_id FROM races r JOIN championships c ON r.championship_id = c.id WHERE r.id = $1',
-    [req.params.id]) as any;
-  if (!race || race.owner_id !== req.user!.id) { res.status(403).json({ error: 'Not authorized' }); return; }
+  const race = await db.queryOne('SELECT r.* FROM races r WHERE r.id = $1', [req.params.id]) as any;
+  if (!race) { res.status(404).json({ error: 'Race not found' }); return; }
+  if (!await canManageChampionship(race.championship_id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
 
   const sc = await db.queryOne('SELECT * FROM scoring_systems WHERE championship_id = $1', [race.championship_id]) as any;
   const pointsArray = sc ? JSON.parse(sc.position_points) : [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
@@ -124,9 +131,11 @@ router.post('/:id/results', authenticate, requireElite, asyncHandler(async (req:
 }));
 
 router.post('/:id/sprint-results', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const race = await db.queryOne('SELECT r.*, c.created_by as owner_id FROM races r JOIN championships c ON r.championship_id = c.id WHERE r.id = $1',
-    [req.params.id]) as any;
-  if (!race || race.owner_id !== req.user!.id) { res.status(403).json({ error: 'Not authorized' }); return; }
+  const race = await db.queryOne('SELECT r.* FROM races r WHERE r.id = $1', [req.params.id]) as any;
+  if (!race) { res.status(404).json({ error: 'Race not found' }); return; }
+  if (!await canManageChampionship(race.championship_id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
   if (!race.has_sprint) { res.status(400).json({ error: 'This race does not have a sprint session' }); return; }
 
   const sc = await db.queryOne('SELECT * FROM scoring_systems WHERE championship_id = $1', [race.championship_id]) as any;
@@ -165,9 +174,11 @@ router.post('/:id/sprint-results', authenticate, requireElite, asyncHandler(asyn
 }));
 
 router.put('/:id/reopen', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const race = await db.queryOne('SELECT r.*, c.created_by as owner_id FROM races r JOIN championships c ON r.championship_id = c.id WHERE r.id = $1',
-    [req.params.id]) as any;
-  if (!race || race.owner_id !== req.user!.id) { res.status(403).json({ error: 'Not authorized' }); return; }
+  const race = await db.queryOne('SELECT r.* FROM races r WHERE r.id = $1', [req.params.id]) as any;
+  if (!race) { res.status(404).json({ error: 'Race not found' }); return; }
+  if (!await canManageChampionship(race.championship_id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
   await db.execute("UPDATE races SET status = 'scheduled', updated_at = NOW() WHERE id = $1", [race.id]);
   await db.execute('DELETE FROM race_results WHERE race_id = $1', [race.id]);
   await db.execute('DELETE FROM sprint_results WHERE race_id = $1', [race.id]);

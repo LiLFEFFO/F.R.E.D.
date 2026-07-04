@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../database/schema';
-import { authenticate, requireElite, optionalAuth, AuthRequest } from '../middleware/auth';
+import { authenticate, requireElite, optionalAuth, AuthRequest, canManageChampionship } from '../middleware/auth';
 import { asyncHandler } from '../utils/asyncHandler';
 import { recalculateChampionship } from '../services/scoring';
 
@@ -75,8 +75,11 @@ router.post('/', authenticate, requireElite, asyncHandler(async (req: AuthReques
 }));
 
 router.put('/:id', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const champ = await db.queryOne('SELECT * FROM championships WHERE id = $1 AND created_by = $2', [req.params.id, req.user!.id]) as any;
-  if (!champ) { res.status(403).json({ error: 'Not authorized or not found' }); return; }
+  if (!await canManageChampionship(req.params.id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized or not found' }); return;
+  }
+  const champ = await db.queryOne('SELECT * FROM championships WHERE id = $1', [req.params.id]) as any;
+  if (!champ) { res.status(404).json({ error: 'Not found' }); return; }
   const { name, season, description, rules, max_participants, cover_image } = req.body;
   await db.execute(`
     UPDATE championships SET name = COALESCE($1, name), season = COALESCE($2, season),
@@ -88,23 +91,28 @@ router.put('/:id', authenticate, requireElite, asyncHandler(async (req: AuthRequ
 }));
 
 router.delete('/:id', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const champ = await db.queryOne('SELECT * FROM championships WHERE id = $1 AND created_by = $2', [req.params.id, req.user!.id]);
-  if (!champ) { res.status(403).json({ error: 'Not authorized or not found' }); return; }
+  if (!await canManageChampionship(req.params.id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized or not found' }); return;
+  }
   await db.execute('DELETE FROM championships WHERE id = $1', [req.params.id]);
   res.json({ message: 'Championship deleted' });
 }));
 
 router.put('/:id/conclude', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const champ = await db.queryOne('SELECT * FROM championships WHERE id = $1 AND created_by = $2', [req.params.id, req.user!.id]) as any;
-  if (!champ) { res.status(403).json({ error: 'Not authorized or not found' }); return; }
+  if (!await canManageChampionship(req.params.id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized or not found' }); return;
+  }
+  const champ = await db.queryOne('SELECT * FROM championships WHERE id = $1', [req.params.id]) as any;
+  if (!champ) { res.status(404).json({ error: 'Not found' }); return; }
   const newStatus = champ.status === 'concluded' ? 'active' : 'concluded';
   await db.execute("UPDATE championships SET status = $1, updated_at = NOW() WHERE id = $2", [newStatus, req.params.id]);
   res.json(await db.queryOne('SELECT * FROM championships WHERE id = $1', [req.params.id]));
 }));
 
 router.post('/:id/recalculate', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const champ = await db.queryOne('SELECT id FROM championships WHERE id = $1 AND created_by = $2', [req.params.id, req.user!.id]);
-  if (!champ) { res.status(403).json({ error: 'Not authorized' }); return; }
+  if (!await canManageChampionship(req.params.id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
   await recalculateChampionship(req.params.id);
   res.json({ message: 'Standings recalculated' });
 }));
@@ -129,8 +137,9 @@ router.get('/:id/standings', optionalAuth, asyncHandler(async (req: AuthRequest,
 }));
 
 router.put('/:id/scoring', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const champ = await db.queryOne('SELECT id FROM championships WHERE id = $1 AND created_by = $2', [req.params.id, req.user!.id]);
-  if (!champ) { res.status(403).json({ error: 'Not authorized' }); return; }
+  if (!await canManageChampionship(req.params.id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
   const { position_points, sprint_points, pole_bonus, fastest_lap_bonus } = req.body;
   await db.execute(`
     UPDATE scoring_systems SET position_points = COALESCE($1, position_points),
@@ -248,6 +257,42 @@ router.get('/:id/title-scenarios', optionalAuth, asyncHandler(async (req: AuthRe
 
   scenarios.sort((a, b) => (b.can_win_next_race ? 1 : 0) - (a.can_win_next_race ? 1 : 0));
   res.json({ scenarios, concluded: false, next_race: nextRace, remaining_races: remaining.length, max_points_per_race: maxPerRace });
+}));
+
+router.get('/:id/collaborators', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
+  if (!await canManageChampionship(req.params.id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
+  const collaborators = await db.query(`
+    SELECT cc.id, cc.user_id, u.username, u.email, u.avatar
+    FROM championship_collaborators cc JOIN users u ON cc.user_id = u.id
+    WHERE cc.championship_id = $1 ORDER BY u.username ASC
+  `, [req.params.id]);
+  res.json(collaborators);
+}));
+
+router.post('/:id/collaborators', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
+  if (!await canManageChampionship(req.params.id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
+  const { user_id } = req.body;
+  if (!user_id) { res.status(400).json({ error: 'user_id is required' }); return; }
+  const user = await db.queryOne('SELECT id, username, role FROM users WHERE id = $1', [user_id]) as any;
+  if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+  if (user.role !== 'elite') { res.status(400).json({ error: 'User must be ELITE' }); return; }
+  const existing = await db.queryOne('SELECT id FROM championship_collaborators WHERE championship_id = $1 AND user_id = $2', [req.params.id, user_id]);
+  if (existing) { res.status(400).json({ error: 'User is already a collaborator' }); return; }
+  const id = uuidv4();
+  await db.execute('INSERT INTO championship_collaborators (id, championship_id, user_id) VALUES ($1, $2, $3)', [id, req.params.id, user_id]);
+  res.status(201).json({ id, user_id, username: user.username });
+}));
+
+router.delete('/:id/collaborators/:userId', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
+  if (!await canManageChampionship(req.params.id, req.user!.id)) {
+    res.status(403).json({ error: 'Not authorized' }); return;
+  }
+  await db.execute('DELETE FROM championship_collaborators WHERE championship_id = $1 AND user_id = $2', [req.params.id, req.params.userId]);
+  res.json({ message: 'Collaborator removed' });
 }));
 
 export default router;

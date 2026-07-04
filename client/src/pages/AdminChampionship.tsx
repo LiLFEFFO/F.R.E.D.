@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 
@@ -25,7 +25,7 @@ export default function AdminChampionship() {
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, [id]);
+  useEffect(() => { loadData(); loadCollaborators(); }, [id]);
 
   const [showAddDriver, setShowAddDriver] = useState(false);
   const [driverForm, setDriverForm] = useState({ name: '', number: 0, team_id: '' });
@@ -92,9 +92,45 @@ export default function AdminChampionship() {
   };
 
   const [selectedRace, setSelectedRace] = useState<string | null>(null);
-  const [resultEntries, setResultEntries] = useState<any[]>([]);
-  const [sprintResultEntries, setSprintResultEntries] = useState<any[]>([]);
-  const [resultsTab, setResultsTab] = useState<'race' | 'sprint'>('race');
+  const [resultsTab, setResultsTab] = useState<'race' | 'sprint' | 'qualifying'>('race');
+  const [raceSelections, setRaceSelections] = useState<Record<number, string>>({});
+  const [raceExtras, setRaceExtras] = useState<Record<string, { pole: boolean; fl: boolean; dnf: boolean; present: boolean; penalties: string }>>({});
+  const [sprintSelections, setSprintSelections] = useState<Record<number, string>>({});
+  const [sprintExtras, setSprintExtras] = useState<Record<string, { dnf: boolean; present: boolean; penalties: string }>>({});
+  const [qualifyingSelections, setQualifyingSelections] = useState<Record<number, string>>({});
+  const [qualifyingExtras, setQualifyingExtras] = useState<Record<string, { penalties: string }>>({});
+
+  const selectedRaceData = useMemo(() => races.find(r => r.id === selectedRace), [selectedRace, races]);
+
+  const usedDriverIds = (selections: Record<number, string>, skipPos?: number) =>
+    Object.entries(selections).filter(([k, v]) => Number(k) !== skipPos && v).map(([, v]) => v);
+
+  const availableDrivers = (selections: Record<number, string>, currentPos: number) =>
+    drivers.filter(d => !usedDriverIds(selections, currentPos).includes(d.id));
+
+  const initRaceForm = (race: any) => {
+    const totalPos = drivers.length;
+    const initSelections: Record<number, string> = {};
+    const initExtras: Record<string, any> = {};
+    for (let i = 1; i <= totalPos; i++) initSelections[i] = '';
+    drivers.forEach(d => { initExtras[d.id] = { pole: false, fl: false, dnf: false, present: true, penalties: '' }; });
+    setRaceSelections(initSelections);
+    setRaceExtras(initExtras);
+    const initSprintSelections: Record<number, string> = {};
+    const initSprintExtras: Record<string, any> = {};
+    if (race?.has_sprint) {
+      for (let i = 1; i <= totalPos; i++) initSprintSelections[i] = '';
+      drivers.forEach(d => { initSprintExtras[d.id] = { dnf: false, present: true, penalties: '' }; });
+    }
+    setSprintSelections(initSprintSelections);
+    setSprintExtras(initSprintExtras);
+    const initQSelections: Record<number, string> = {};
+    const initQExtras: Record<string, any> = {};
+    for (let i = 1; i <= totalPos; i++) initQSelections[i] = '';
+    drivers.forEach(d => { initQExtras[d.id] = { penalties: '' }; });
+    setQualifyingSelections(initQSelections);
+    setQualifyingExtras(initQExtras);
+  };
 
   const [editingRace, setEditingRace] = useState<any>(null);
   const [editRaceForm, setEditRaceForm] = useState({ name: '', circuit: '', date: '', weather: 'Dry', has_sprint: false });
@@ -110,82 +146,122 @@ export default function AdminChampionship() {
     setSelectedRace(raceId);
     setResultsTab('race');
     const race = races.find(r => r.id === raceId);
-    if (race?.status === 'completed') {
+    if (!race) return;
+    if (race.status === 'completed') {
       const fullRace = await api.races.get(raceId);
+      const totalPos = drivers.length;
+      const raceSel: Record<number, string> = {};
+      const raceEx: Record<string, any> = {};
+      for (let i = 1; i <= totalPos; i++) raceSel[i] = '';
+      drivers.forEach(d => { raceEx[d.id] = { pole: false, fl: false, dnf: false, present: true, penalties: '' }; });
       if (fullRace.results?.length > 0) {
-        setResultEntries(fullRace.results.map((r: any) => ({
-          driver_id: r.driver_id,
-          position: r.position,
-          pole_position: !!r.pole_position,
-          fastest_lap: !!r.fastest_lap,
-          dnf: !!r.dnf,
-          present: r.present !== 0,
-          qualifying_position: r.qualifying_position != null ? r.qualifying_position : '',
-          penalties: r.penalties || '',
-          notes: r.notes || '',
-        })));
+        for (const r of fullRace.results) {
+          raceSel[r.position] = r.driver_id;
+          raceEx[r.driver_id] = {
+            pole: !!r.pole_position,
+            fl: !!r.fastest_lap,
+            dnf: !!r.dnf,
+            present: r.present !== 0,
+            penalties: r.penalties || '',
+          };
+        }
       }
+      setRaceSelections(raceSel);
+      setRaceExtras(raceEx);
+
+      const sprintSel: Record<number, string> = {};
+      const sprintEx: Record<string, any> = {};
+      for (let i = 1; i <= totalPos; i++) sprintSel[i] = '';
+      drivers.forEach(d => { sprintEx[d.id] = { dnf: false, present: true, penalties: '' }; });
       if (fullRace.sprint_results?.length > 0) {
-        setSprintResultEntries(fullRace.sprint_results.map((r: any) => ({
-          driver_id: r.driver_id,
-          position: r.position,
-          dnf: !!r.dnf,
-          present: r.present !== 0,
-          penalties: r.penalties || '',
-          notes: r.notes || '',
-        })));
-      } else if (race.has_sprint && drivers.length > 0) {
-        setSprintResultEntries(
-          drivers.map((d, i) => ({
-            driver_id: d.id,
-            position: i + 1,
-            dnf: false,
-            present: true,
-            penalties: '',
-            notes: '',
-          }))
-        );
+        for (const r of fullRace.sprint_results) {
+          sprintSel[r.position] = r.driver_id;
+          sprintEx[r.driver_id] = { dnf: !!r.dnf, present: r.present !== 0, penalties: r.penalties || '' };
+        }
       }
+      setSprintSelections(sprintSel);
+      setSprintExtras(sprintEx);
+
+      const qSel: Record<number, string> = {};
+      const qEx: Record<string, any> = {};
+      for (let i = 1; i <= totalPos; i++) qSel[i] = '';
+      drivers.forEach(d => { qEx[d.id] = { penalties: '' }; });
+      if (fullRace.results?.length > 0) {
+        for (const r of fullRace.results) {
+          if (r.qualifying_position != null) {
+            qSel[r.qualifying_position] = r.driver_id;
+          }
+        }
+      }
+      setQualifyingSelections(qSel);
+      setQualifyingExtras(qEx);
       return;
     }
-    if (drivers.length > 0) {
-      setResultEntries(
-        drivers.map((d, i) => ({
-          driver_id: d.id,
-          position: i + 1,
-          pole_position: false,
-          fastest_lap: false,
-          dnf: false,
-          present: true,
-          qualifying_position: '',
-          penalties: '',
-          notes: '',
-        }))
-      );
-      if (race?.has_sprint) {
-        setSprintResultEntries(
-          drivers.map((d, i) => ({
-            driver_id: d.id,
-            position: i + 1,
-            dnf: false,
-            present: true,
-            penalties: '',
-            notes: '',
-          }))
-        );
-      }
-    }
+    initRaceForm(race);
   };
 
   const submitResults = async () => {
     if (!selectedRace) return;
+    const resultEntries = Object.entries(raceSelections)
+      .filter(([, driverId]) => driverId)
+      .map(([pos, driverId]) => ({
+        driver_id: driverId,
+        position: Number(pos),
+        pole_position: raceExtras[driverId]?.pole || false,
+        fastest_lap: raceExtras[driverId]?.fl || false,
+        dnf: raceExtras[driverId]?.dnf || false,
+        present: raceExtras[driverId]?.present !== false,
+        qualifying_position: Object.entries(qualifyingSelections)
+          .find(([, qd]) => qd === driverId)?.[0]
+          ? Number(Object.entries(qualifyingSelections).find(([, qd]) => qd === driverId)![0])
+          : null,
+        penalties: raceExtras[driverId]?.penalties || '',
+        notes: '',
+      }));
     await api.races.submitResults(selectedRace, resultEntries);
     const race = races.find(r => r.id === selectedRace);
-    if (race?.has_sprint && sprintResultEntries.length > 0) {
-      await api.races.submitSprintResults(selectedRace, sprintResultEntries);
+    if (race?.has_sprint && Object.values(sprintSelections).some(v => v)) {
+      const sprintEntries = Object.entries(sprintSelections)
+        .filter(([, driverId]) => driverId)
+        .map(([pos, driverId]) => ({
+          driver_id: driverId,
+          position: Number(pos),
+          dnf: sprintExtras[driverId]?.dnf || false,
+          present: sprintExtras[driverId]?.present !== false,
+          penalties: sprintExtras[driverId]?.penalties || '',
+          notes: '',
+        }));
+      await api.races.submitSprintResults(selectedRace, sprintEntries);
     }
     setSelectedRace(null);
     loadData();
+  };
+
+  const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [eliteUsers, setEliteUsers] = useState<any[]>([]);
+  const [showInviteCollab, setShowInviteCollab] = useState(false);
+  const [selectedCollabUserId, setSelectedCollabUserId] = useState('');
+
+  const loadCollaborators = async () => {
+    if (!id) return;
+    try { setCollaborators(await api.championships.getCollaborators(id)); } catch {}
+    try { setEliteUsers(await api.admin.eliteUsers()); } catch {}
+  };
+
+  const inviteCollaborator = async () => {
+    if (!id || !selectedCollabUserId) return;
+    await api.championships.addCollaborator(id, selectedCollabUserId);
+    setSelectedCollabUserId('');
+    setShowInviteCollab(false);
+    loadCollaborators();
+  };
+
+  const removeCollaborator = async (userId: string) => {
+    if (!id) return;
+    if (confirm('Remove this collaborator?')) {
+      await api.championships.removeCollaborator(id, userId);
+      loadCollaborators();
+    }
   };
 
   const [showScoring, setShowScoring] = useState(false);
@@ -250,6 +326,48 @@ export default function AdminChampionship() {
                 <div className="label">Completed</div>
               </div>
             </div>
+
+            <div className="card mb-4">
+              <div className="card-header">
+                <span className="card-title">Collaborators</span>
+                <button className="btn btn-primary btn-sm" onClick={() => { loadCollaborators(); setShowInviteCollab(true); }}>+ Invite Elite</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {collaborators.length === 0 ? (
+                  <p className="text-sm text-muted p-3">No collaborators yet</p>
+                ) : (
+                  collaborators.map((c: any) => (
+                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                      <div className="flex items-center gap-2">
+                        <div className="avatar avatar-xs" style={{ background: 'var(--accent)', color: '#fff', width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>
+                          {c.username?.substring(0, 2).toUpperCase()}
+                        </div>
+                        <span style={{ fontWeight: 500 }}>{c.username}</span>
+                        <span className="text-xs text-muted">{c.email}</span>
+                      </div>
+                      <button className="btn btn-danger btn-sm" onClick={() => removeCollaborator(c.user_id)}>Remove</button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {showInviteCollab && (
+              <Modal onClose={() => setShowInviteCollab(false)} title="Invite Elite User">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <select value={selectedCollabUserId} onChange={e => setSelectedCollabUserId(e.target.value)}>
+                    <option value="">— Select user —</option>
+                    {eliteUsers.filter((u: any) => !collaborators.find((c: any) => c.user_id === u.id)).map((u: any) => (
+                      <option key={u.id} value={u.id}>{u.username} ({u.email})</option>
+                    ))}
+                  </select>
+                  <div className="flex justify-between mt-2">
+                    <button className="btn btn-ghost" onClick={() => setShowInviteCollab(false)}>Cancel</button>
+                    <button className="btn btn-primary" onClick={inviteCollaborator} disabled={!selectedCollabUserId}>Invite</button>
+                  </div>
+                </div>
+              </Modal>
+            )}
 
             <div className="card">
               <div className="card-header"><span className="card-title">Edit Series</span></div>
@@ -636,183 +754,206 @@ export default function AdminChampionship() {
         {selectedRace && (
           <Modal onClose={() => setSelectedRace(null)} title="Enter Results" wide>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {(() => {
-                const race = races.find(r => r.id === selectedRace);
-                const hasSprint = race?.has_sprint;
-                return (
-                  <>
-                    {hasSprint && (
-                      <div className="tabs" style={{ marginBottom: 8 }}>
-                        <button className={`tab ${resultsTab === 'race' ? 'active' : ''}`} onClick={() => setResultsTab('race')}>Main Race</button>
-                        <button className={`tab ${resultsTab === 'sprint' ? 'active' : ''}`} onClick={() => setResultsTab('sprint')}>Sprint</button>
-                      </div>
-                    )}
-                    {resultsTab === 'sprint' ? (
-                      <>
-                        <p className="text-sm text-secondary mb-2">Drag drivers to reorder for sprint classification.</p>
-                        <div style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {sprintResultEntries
-                            .slice()
-                            .sort((a, b) => a.position - b.position)
-                            .map((entry, idx) => {
-                              const driver = drivers.find(d => d.id === entry.driver_id);
-                              const team = driver ? teams.find((t: any) => t.id === driver.team_id) : null;
-                              return (
-                                <div key={entry.driver_id} className="result-entry"
-                                  draggable
-                                  onDragStart={e => { e.dataTransfer.setData('text/plain', entry.driver_id); e.dataTransfer.effectAllowed = 'move'; }}
-                                  onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-                                  onDrop={e => {
-                                    e.preventDefault();
-                                    const draggedId = e.dataTransfer.getData('text/plain');
-                                    if (draggedId === entry.driver_id) return;
-                                    setSprintResultEntries((prev: any[]) => {
-                                      const arr = [...prev];
-                                      const draggedIdx = arr.findIndex(p => p.driver_id === draggedId);
-                                      const targetIdx = arr.findIndex(p => p.driver_id === entry.driver_id);
-                                      if (draggedIdx === -1 || targetIdx === -1) return prev;
-                                      const [moved] = arr.splice(draggedIdx, 1);
-                                      arr.splice(targetIdx, 0, moved);
-                                      return arr.map((p, i) => ({ ...p, position: i + 1 }));
-                                    });
-                                  }}
-                                  style={{
-                                    opacity: entry.present === false ? 0.6 : 1,
-                                    background: entry.dnf ? 'var(--accent-red-light)' : entry.present === false ? 'var(--accent-orange-light)' : 'var(--bg-secondary)',
-                                  }}>
-                                  <span className="result-pos">P{entry.position}</span>
-                                  <span className="team-dot" style={{ background: team?.color || 'var(--text-muted)' }} />
-                                  <span className="result-driver" style={{ fontWeight: 500, flex: 1 }}>
-                                    {driver?.name || entry.driver_id}
-                                  </span>
-                                  <label className="result-checkbox present-checkbox">
-                                    <input type="checkbox" checked={entry.present !== false}
-                                      onChange={e => {
-                                        const checked = e.target.checked;
-                                        setSprintResultEntries((prev: any[]) =>
-                                          prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, present: checked, dnf: checked ? p.dnf : false } : p)
-                                        );
-                                      }} />
-                                    Present
-                                  </label>
-                                  <label className="result-checkbox">
-                                    <input type="checkbox" checked={entry.dnf}
-                                      disabled={entry.present === false}
-                                      onChange={e => setSprintResultEntries((prev: any[]) =>
-                                        prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, dnf: e.target.checked } : p)
-                                      )} />
-                                    DNF
-                                  </label>
-                                  <input value={entry.penalties} onChange={e => setSprintResultEntries((prev: any[]) =>
-                                    prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, penalties: e.target.value } : p)
-                                  )} className="result-pen-input" placeholder="Pen." />
-                                </div>
-                              );
-                            })}
+              <div className="tabs" style={{ marginBottom: 8 }}>
+                <button className={`tab ${resultsTab === 'race' ? 'active' : ''}`} onClick={() => setResultsTab('race')}>Main Race</button>
+                {selectedRaceData?.has_sprint && (
+                  <button className={`tab ${resultsTab === 'sprint' ? 'active' : ''}`} onClick={() => setResultsTab('sprint')}>Sprint</button>
+                )}
+                <button className={`tab ${resultsTab === 'qualifying' ? 'active' : ''}`} onClick={() => setResultsTab('qualifying')}>Qualifying</button>
+              </div>
+
+              {resultsTab === 'sprint' ? (
+                <>
+                  <p className="text-sm text-secondary mb-2">Seleziona un pilota per ogni posizione della Sprint.</p>
+                  <div style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {Array.from({ length: drivers.length }, (_, i) => i + 1).map(pos => {
+                      const driverId = sprintSelections[pos] || '';
+                      const driver = drivers.find(d => d.id === driverId);
+                      const team = driver ? teams.find((t: any) => t.id === driver.team_id) : null;
+                      return (
+                        <div key={`s-${pos}`} className="result-entry" style={{
+                          opacity: driverId && sprintExtras[driverId]?.present === false ? 0.6 : 1,
+                          background: driverId && sprintExtras[driverId]?.dnf ? 'var(--accent-red-light)' : driverId && sprintExtras[driverId]?.present === false ? 'var(--accent-orange-light)' : 'var(--bg-secondary)',
+                        }}>
+                          <span className="result-pos">P{pos}</span>
+                          <select style={{ flex: 1, minWidth: 140, padding: '4px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--bg)' }}
+                            value={driverId}
+                            onChange={e => {
+                              const newId = e.target.value;
+                              setSprintSelections(prev => {
+                                const next = { ...prev };
+                                Object.keys(next).forEach(k => { if (next[Number(k)] === newId) next[Number(k)] = ''; });
+                                next[pos] = newId;
+                                return next;
+                              });
+                            }}>
+                            <option value="">— Select driver —</option>
+                            {availableDrivers(sprintSelections, pos).map(d => (
+                              <option key={d.id} value={d.id}>#{d.number} {d.name}</option>
+                            ))}
+                          </select>
+                          {driver && (
+                            <>
+                              <span className="team-dot" style={{ background: team?.color || 'var(--text-muted)' }} />
+                              <label className="result-checkbox present-checkbox">
+                                <input type="checkbox" checked={sprintExtras[driverId]?.present !== false}
+                                  onChange={e => setSprintExtras(prev => ({
+                                    ...prev,
+                                    [driverId]: { ...prev[driverId], present: e.target.checked, dnf: e.target.checked ? prev[driverId]?.dnf : false }
+                                  }))} />
+                                Present
+                              </label>
+                              <label className="result-checkbox">
+                                <input type="checkbox" checked={sprintExtras[driverId]?.dnf || false}
+                                  disabled={sprintExtras[driverId]?.present === false}
+                                  onChange={e => setSprintExtras(prev => ({
+                                    ...prev,
+                                    [driverId]: { ...prev[driverId], dnf: e.target.checked }
+                                  }))} />
+                                DNF
+                              </label>
+                              <input value={sprintExtras[driverId]?.penalties || ''}
+                                onChange={e => setSprintExtras(prev => ({
+                                  ...prev,
+                                  [driverId]: { ...prev[driverId], penalties: e.target.value }
+                                }))}
+                                className="result-pen-input" placeholder="Pen." />
+                            </>
+                          )}
                         </div>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm text-secondary mb-2">Drag drivers to reorder. Mark absent drivers for reserve substitution.</p>
-                        <div style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {resultEntries
-                            .slice()
-                            .sort((a, b) => a.position - b.position)
-                            .map((entry, idx) => {
-                              const driver = drivers.find(d => d.id === entry.driver_id);
-                              const team = driver ? teams.find((t: any) => t.id === driver.team_id) : null;
-                              const reserveDriver = team ? drivers.find(d => d.id === team.reserve_driver_id) : null;
-                              return (
-                                <div key={entry.driver_id} className="result-entry"
-                                  draggable
-                                  onDragStart={e => { e.dataTransfer.setData('text/plain', entry.driver_id); e.dataTransfer.effectAllowed = 'move'; }}
-                                  onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-                                  onDrop={e => {
-                                    e.preventDefault();
-                                    const draggedId = e.dataTransfer.getData('text/plain');
-                                    if (draggedId === entry.driver_id) return;
-                                    setResultEntries((prev: any[]) => {
-                                      const arr = [...prev];
-                                      const draggedIdx = arr.findIndex(p => p.driver_id === draggedId);
-                                      const targetIdx = arr.findIndex(p => p.driver_id === entry.driver_id);
-                                      if (draggedIdx === -1 || targetIdx === -1) return prev;
-                                      const [moved] = arr.splice(draggedIdx, 1);
-                                      arr.splice(targetIdx, 0, moved);
-                                      return arr.map((p, i) => ({ ...p, position: i + 1 }));
-                                    });
-                                  }}
-                                  style={{
-                                    opacity: entry.present === false ? 0.6 : 1,
-                                    background: entry.dnf ? 'var(--accent-red-light)' : entry.present === false ? 'var(--accent-orange-light)' : 'var(--bg-secondary)',
-                                  }}>
-                                  <span className="result-pos">P{entry.position}{entry.position === 1 ? ' 🏆' : ''}</span>
-                                  <span className="team-dot" style={{ background: team?.color || 'var(--text-muted)' }} />
-                                  <span className="result-driver" style={{ fontWeight: 500, flex: 1 }}>
-                                    {driver?.name || entry.driver_id}
-                                    {entry.present === false && reserveDriver && (
-                                      <span className="text-xs text-accent-orange" style={{ marginLeft: 6 }}>
-                                        → reserve: {reserveDriver.name}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <label className="result-checkbox present-checkbox">
-                                    <input type="checkbox" checked={entry.present !== false}
-                                      onChange={e => {
-                                        const checked = e.target.checked;
-                                        setResultEntries((prev: any[]) =>
-                                          prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, present: checked, dnf: checked ? p.dnf : false } : p)
-                                        );
-                                      }} />
-                                    Present
-                                  </label>
-                                  <label className="result-checkbox">
-                                    <input type="checkbox" checked={entry.pole_position}
-                                      disabled={entry.present === false}
-                                      onChange={e => setResultEntries((prev: any[]) =>
-                                        prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, pole_position: e.target.checked } : p)
-                                      )} />
-                                    Pole
-                                  </label>
-                                  <label className="result-checkbox">
-                                    <input type="radio" name={`fl-${selectedRace}`} checked={entry.fastest_lap}
-                                      disabled={entry.present === false}
-                                      onChange={() => setResultEntries((prev: any[]) =>
-                                        prev.map((p: any) => ({ ...p, fastest_lap: p.driver_id === entry.driver_id }))
-                                      )} />
-                                    FL
-                                  </label>
-                                  <label className="result-checkbox">
-                                    <input type="checkbox" checked={entry.dnf}
-                                      disabled={entry.present === false}
-                                      onChange={e => setResultEntries((prev: any[]) =>
-                                        prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, dnf: e.target.checked } : p)
-                                      )} />
-                                    DNF
-                                  </label>
-                                  <input type="number" value={entry.qualifying_position}
-                                    onChange={e => {
-                                      const val = e.target.value;
-                                      setResultEntries((prev: any[]) =>
-                                        prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, qualifying_position: val === '' ? '' : parseInt(val) || 1 } : p)
-                                      );
-                                    }}
-                                    className="result-ql-input" placeholder="QL" />
-                                  <input value={entry.penalties} onChange={e => setResultEntries((prev: any[]) =>
-                                    prev.map((p: any) => p.driver_id === entry.driver_id ? { ...p, penalties: e.target.value } : p)
-                                  )} className="result-pen-input" placeholder="Pen." />
-                                </div>
-                              );
-                            })}
+                      );
+                    })}
+                  </div>
+                </>
+              ) : resultsTab === 'qualifying' ? (
+                <>
+                  <p className="text-sm text-secondary mb-2">Seleziona un pilota per ogni posizione in Qualifica.</p>
+                  <div style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {Array.from({ length: drivers.length }, (_, i) => i + 1).map(pos => {
+                      const driverId = qualifyingSelections[pos] || '';
+                      const driver = drivers.find(d => d.id === driverId);
+                      const team = driver ? teams.find((t: any) => t.id === driver.team_id) : null;
+                      return (
+                        <div key={`q-${pos}`} className="result-entry" style={{ background: 'var(--bg-secondary)' }}>
+                          <span className="result-pos">P{pos}</span>
+                          <select style={{ flex: 1, minWidth: 140, padding: '4px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--bg)' }}
+                            value={driverId}
+                            onChange={e => {
+                              const newId = e.target.value;
+                              setQualifyingSelections(prev => {
+                                const next = { ...prev };
+                                Object.keys(next).forEach(k => { if (next[Number(k)] === newId) next[Number(k)] = ''; });
+                                next[pos] = newId;
+                                return next;
+                              });
+                            }}>
+                            <option value="">— Select driver —</option>
+                            {availableDrivers(qualifyingSelections, pos).map(d => (
+                              <option key={d.id} value={d.id}>#{d.number} {d.name}</option>
+                            ))}
+                          </select>
+                          {driver && (
+                            <span className="team-dot" style={{ background: team?.color || 'var(--text-muted)' }} />
+                          )}
                         </div>
-                      </>
-                    )}
-                    <div className="flex justify-between mt-3">
-                      <button className="btn btn-ghost" onClick={() => setSelectedRace(null)}>Cancel</button>
-                      <button className="btn btn-primary" onClick={submitResults}>Save Results</button>
-                    </div>
-                  </>
-                );
-              })()}
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-secondary mb-2">Seleziona un pilota per ogni posizione. Spunta Pole, FL, DNF per i piloti selezionati.</p>
+                  <div style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {Array.from({ length: drivers.length }, (_, i) => i + 1).map(pos => {
+                      const driverId = raceSelections[pos] || '';
+                      const driver = drivers.find(d => d.id === driverId);
+                      const team = driver ? teams.find((t: any) => t.id === driver.team_id) : null;
+                      const reserveDriver = team ? drivers.find(d => d.id === team.reserve_driver_id) : null;
+                      return (
+                        <div key={`r-${pos}`} className="result-entry" style={{
+                          opacity: driverId && raceExtras[driverId]?.present === false ? 0.6 : 1,
+                          background: driverId && raceExtras[driverId]?.dnf ? 'var(--accent-red-light)' : driverId && raceExtras[driverId]?.present === false ? 'var(--accent-orange-light)' : 'var(--bg-secondary)',
+                        }}>
+                          <span className="result-pos">P{pos}{pos === 1 ? ' 🏆' : ''}</span>
+                          <select style={{ flex: 1, minWidth: 140, padding: '4px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--bg)' }}
+                            value={driverId}
+                            onChange={e => {
+                              const newId = e.target.value;
+                              setRaceSelections(prev => {
+                                const next = { ...prev };
+                                Object.keys(next).forEach(k => { if (next[Number(k)] === newId) next[Number(k)] = ''; });
+                                next[pos] = newId;
+                                return next;
+                              });
+                            }}>
+                            <option value="">— Select driver —</option>
+                            {availableDrivers(raceSelections, pos).map(d => (
+                              <option key={d.id} value={d.id}>#{d.number} {d.name}</option>
+                            ))}
+                          </select>
+                          {driver && (
+                            <>
+                              <span className="team-dot" style={{ background: team?.color || 'var(--text-muted)' }} />
+                              {raceExtras[driverId]?.present === false && reserveDriver && (
+                                <span className="text-xs text-accent-orange" style={{ marginLeft: 2 }}>
+                                  → {reserveDriver.name}
+                                </span>
+                              )}
+                              <label className="result-checkbox present-checkbox">
+                                <input type="checkbox" checked={raceExtras[driverId]?.present !== false}
+                                  onChange={e => setRaceExtras(prev => ({
+                                    ...prev,
+                                    [driverId]: { ...prev[driverId], present: e.target.checked, dnf: e.target.checked ? prev[driverId]?.dnf : false, pole: e.target.checked ? prev[driverId]?.pole : false, fl: e.target.checked ? prev[driverId]?.fl : false }
+                                  }))} />
+                                Present
+                              </label>
+                              <label className="result-checkbox">
+                                <input type="checkbox" checked={raceExtras[driverId]?.pole || false}
+                                  disabled={raceExtras[driverId]?.present === false}
+                                  onChange={e => setRaceExtras(prev => ({
+                                    ...prev,
+                                    [driverId]: { ...prev[driverId], pole: e.target.checked }
+                                  }))} />
+                                Pole
+                              </label>
+                              <label className="result-checkbox">
+                                <input type="radio" name={`fl-${selectedRace}`} checked={raceExtras[driverId]?.fl || false}
+                                  disabled={raceExtras[driverId]?.present === false}
+                                  onChange={() => setRaceExtras(prev => {
+                                    const next = { ...prev };
+                                    Object.keys(next).forEach(k => { next[k] = { ...next[k], fl: false }; });
+                                    next[driverId] = { ...next[driverId], fl: true };
+                                    return next;
+                                  })} />
+                                FL
+                              </label>
+                              <label className="result-checkbox">
+                                <input type="checkbox" checked={raceExtras[driverId]?.dnf || false}
+                                  disabled={raceExtras[driverId]?.present === false}
+                                  onChange={e => setRaceExtras(prev => ({
+                                    ...prev,
+                                    [driverId]: { ...prev[driverId], dnf: e.target.checked }
+                                  }))} />
+                                DNF
+                              </label>
+                              <input value={raceExtras[driverId]?.penalties || ''}
+                                onChange={e => setRaceExtras(prev => ({
+                                  ...prev,
+                                  [driverId]: { ...prev[driverId], penalties: e.target.value }
+                                }))}
+                                className="result-pen-input" placeholder="Pen." />
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between mt-3">
+                <button className="btn btn-ghost" onClick={() => setSelectedRace(null)}>Cancel</button>
+                <button className="btn btn-primary" onClick={submitResults}>Save Results</button>
+              </div>
             </div>
           </Modal>
         )}
