@@ -22,11 +22,13 @@ export async function recalculateChampionship(championshipId: string): Promise<v
 
   for (const d of drivers) {
     driverStats[d.id] = { points: 0, wins: 0, podiums: 0, poles: 0, fastestLaps: 0, racesDone: 0 };
-    if (d.team_id) teamStats[d.team_id] = 0;
+  }
+  for (const t of teams) {
+    teamStats[t.id] = 0;
   }
 
   for (const race of races) {
-    const results = await db.query('SELECT * FROM race_results WHERE race_id = $1 ORDER BY position ASC', [race.id]) as any[];
+    const results = await db.query('SELECT rr.*, rr.team_id FROM race_results rr WHERE rr.race_id = $1 ORDER BY rr.position ASC', [race.id]) as any[];
     for (const r of results) {
       const ds = driverStats[r.driver_id];
       if (!ds) continue;
@@ -37,22 +39,20 @@ export async function recalculateChampionship(championshipId: string): Promise<v
       if (r.pole_position) ds.poles += 1;
       if (r.fastest_lap) ds.fastestLaps += 1;
 
-      const driver = await db.queryOne('SELECT team_id FROM drivers WHERE id = $1', [r.driver_id]) as any;
-      if (driver?.team_id && teamStats[driver.team_id] !== undefined) {
-        teamStats[driver.team_id] += r.points;
+      if (r.team_id && teamStats[r.team_id] !== undefined) {
+        teamStats[r.team_id] += r.points;
       }
     }
 
-    const sprintRes = await db.query('SELECT * FROM sprint_results WHERE race_id = $1 ORDER BY position ASC', [race.id]) as any[];
+    const sprintRes = await db.query('SELECT sr.*, sr.team_id FROM sprint_results sr WHERE sr.race_id = $1 ORDER BY sr.position ASC', [race.id]) as any[];
     for (const sr of sprintRes) {
       const ds = driverStats[sr.driver_id];
       if (!ds) continue;
       ds.points += sr.points;
       ds.racesDone += 1;
 
-      const driver = await db.queryOne('SELECT team_id FROM drivers WHERE id = $1', [sr.driver_id]) as any;
-      if (driver?.team_id && teamStats[driver.team_id] !== undefined) {
-        teamStats[driver.team_id] += sr.points;
+      if (sr.team_id && teamStats[sr.team_id] !== undefined) {
+        teamStats[sr.team_id] += sr.points;
       }
     }
   }

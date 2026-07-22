@@ -426,7 +426,17 @@ export default function AdminChampionship() {
                     <tr key={d.id}>
                       <td className="font-bold">#{d.number}</td>
                       <td style={{ fontWeight: 500 }}>{d.name}</td>
-                      <td><span className="team-dot" style={{ background: d.team_color || 'var(--text-muted)' }} />{d.team_name || '-'}</td>
+                      <td>
+                        <span className="team-dot" style={{ background: d.team_color || 'var(--text-muted)' }} />
+                        <select value={d.team_id || ''} onChange={async e => {
+                          const newTeamId = e.target.value;
+                          await api.drivers.update(d.id, { team_id: newTeamId || null });
+                          loadData();
+                        }} style={{ padding: '2px 4px', fontSize: '0.8rem', maxWidth: 140 }}>
+                          <option value="">— No team —</option>
+                          {teams.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                      </td>
                       <td><button className="btn btn-danger btn-sm" onClick={() => deleteDriver(d.id)}>Delete</button></td>
                     </tr>
                   ))}
