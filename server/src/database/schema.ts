@@ -115,6 +115,7 @@ export async function initSchema() {
       points REAL NOT NULL DEFAULT 0,
       dnf INTEGER NOT NULL DEFAULT 0,
       present INTEGER NOT NULL DEFAULT 1,
+      fastest_lap INTEGER NOT NULL DEFAULT 0,
       penalties TEXT DEFAULT '',
       notes TEXT DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -198,6 +199,7 @@ export async function initSchema() {
     ALTER TABLE scoring_systems ADD COLUMN IF NOT EXISTS sprint_points TEXT NOT NULL DEFAULT '[10,8,6,5,4,3,2,1]';
     ALTER TABLE race_results ADD COLUMN IF NOT EXISTS team_id TEXT REFERENCES teams(id) ON DELETE SET NULL;
     ALTER TABLE sprint_results ADD COLUMN IF NOT EXISTS team_id TEXT REFERENCES teams(id) ON DELETE SET NULL;
+    ALTER TABLE sprint_results ADD COLUMN IF NOT EXISTS fastest_lap INTEGER NOT NULL DEFAULT 0;
   `);
   console.log('Database schema initialized');
 }

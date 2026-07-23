@@ -120,7 +120,7 @@ export default function AdminChampionship() {
     const initSprintExtras: Record<string, any> = {};
     if (race?.has_sprint) {
       for (let i = 1; i <= totalPos; i++) initSprintSelections[i] = '';
-      drivers.forEach(d => { initSprintExtras[d.id] = { dnf: false, present: true, penalties: '' }; });
+      drivers.forEach(d => { initSprintExtras[d.id] = { fl: false, dnf: false, present: true, penalties: '' }; });
     }
     setSprintSelections(initSprintSelections);
     setSprintExtras(initSprintExtras);
@@ -172,11 +172,11 @@ export default function AdminChampionship() {
       const sprintSel: Record<number, string> = {};
       const sprintEx: Record<string, any> = {};
       for (let i = 1; i <= totalPos; i++) sprintSel[i] = '';
-      drivers.forEach(d => { sprintEx[d.id] = { dnf: false, present: true, penalties: '' }; });
+      drivers.forEach(d => { sprintEx[d.id] = { fl: false, dnf: false, present: true, penalties: '' }; });
       if (fullRace.sprint_results?.length > 0) {
         for (const r of fullRace.sprint_results) {
           sprintSel[r.position] = r.driver_id;
-          sprintEx[r.driver_id] = { dnf: !!r.dnf, present: r.present !== 0, penalties: r.penalties || '' };
+          sprintEx[r.driver_id] = { fl: !!r.fastest_lap, dnf: !!r.dnf, present: r.present !== 0, penalties: r.penalties || '' };
         }
       }
       setSprintSelections(sprintSel);
@@ -226,6 +226,7 @@ export default function AdminChampionship() {
         .map(([pos, driverId]) => ({
           driver_id: driverId,
           position: Number(pos),
+          fastest_lap: sprintExtras[driverId]?.fl || false,
           dnf: sprintExtras[driverId]?.dnf || false,
           present: sprintExtras[driverId]?.present !== false,
           penalties: sprintExtras[driverId]?.penalties || '',
@@ -812,6 +813,17 @@ export default function AdminChampionship() {
                                     [driverId]: { ...prev[driverId], present: e.target.checked, dnf: e.target.checked ? prev[driverId]?.dnf : false }
                                   }))} />
                                 Present
+                              </label>
+                              <label className="result-checkbox">
+                                <input type="radio" name={`sfl-${selectedRace}`} checked={sprintExtras[driverId]?.fl || false}
+                                  disabled={sprintExtras[driverId]?.present === false}
+                                  onChange={() => setSprintExtras(prev => {
+                                    const next = { ...prev };
+                                    Object.keys(next).forEach(k => { next[k] = { ...next[k], fl: false }; });
+                                    next[driverId] = { ...next[driverId], fl: true };
+                                    return next;
+                                  })} />
+                                FL
                               </label>
                               <label className="result-checkbox">
                                 <input type="checkbox" checked={sprintExtras[driverId]?.dnf || false}

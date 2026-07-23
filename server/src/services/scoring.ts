@@ -50,6 +50,7 @@ export async function recalculateChampionship(championshipId: string): Promise<v
       if (!ds) continue;
       ds.points += sr.points;
       ds.racesDone += 1;
+      if (sr.fastest_lap) ds.fastestLaps += 1;
 
       if (sr.team_id && teamStats[sr.team_id] !== undefined) {
         teamStats[sr.team_id] += sr.points;

@@ -151,14 +151,17 @@ router.post('/:id/sprint-results', authenticate, requireElite, asyncHandler(asyn
 
   for (const r of results) {
     const basePoints = (!r.dnf && r.present !== false && r.position <= pointsArray.length) ? pointsArray[r.position - 1] : 0;
+    let totalPoints = basePoints;
+    if (r.fastest_lap && sc && r.present !== false) totalPoints += sc.fastest_lap_bonus;
 
     const driverForResult = await db.queryOne('SELECT team_id FROM drivers WHERE id = $1', [r.driver_id]) as any;
 
     await db.execute(`
-      INSERT INTO sprint_results (id, race_id, driver_id, position, points, dnf, present, penalties, notes, team_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-    `, [uuidv4(), race.id, r.driver_id, r.position, basePoints,
+      INSERT INTO sprint_results (id, race_id, driver_id, position, points, dnf, present, fastest_lap, penalties, notes, team_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    `, [uuidv4(), race.id, r.driver_id, r.position, totalPoints,
         r.dnf ? 1 : 0, r.present !== false ? 1 : 0,
+        r.fastest_lap ? 1 : 0,
         r.penalties || '', r.notes || '',
         driverForResult?.team_id || null
     ]);
