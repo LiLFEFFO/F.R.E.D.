@@ -192,3 +192,13 @@ export function flagForNationality(nationality?: string): string | undefined {
 export function flagForCountry(country: string): string | undefined {
   return flagForNationality(country);
 }
+
+export function countryCodeFor(nationality?: string): string | undefined {
+  const flag = flagForNationality(nationality);
+  if (!flag) return undefined;
+  const cps = [...flag].map(ch => ch.codePointAt(0)!);
+  if (cps.length === 2 && cps[0] >= 0x1F1E6 && cps[0] <= 0x1F1FF && cps[1] >= 0x1F1E6 && cps[1] <= 0x1F1FF) {
+    return String.fromCharCode(cps[0] - 0x1F1E6 + 65) + String.fromCharCode(cps[1] - 0x1F1E6 + 65);
+  }
+  return undefined;
+}

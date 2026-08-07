@@ -1,10 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { COUNTRIES, flagForNationality } from '../utils/nationalities';
+import { COUNTRIES, flagForNationality, countryCodeFor } from '../utils/nationalities';
 
 interface Props {
   value?: string;
   onChange: (value: string) => void;
   placeholder?: string;
+}
+
+function FlagImage({ country, size = 16 }: { country: string; size?: number }) {
+  const flag = flagForNationality(country);
+  const code = countryCodeFor(country);
+  const [failed, setFailed] = useState(false);
+  if (!flag) return null;
+  if (code && !failed) {
+    return (
+      <img
+        src={`https://flagcdn.com/w40/${code.toLowerCase()}.png`}
+        alt={country}
+        width={Math.round(size * 1.4)}
+        height={size}
+        style={{ marginRight: 8, borderRadius: 2, verticalAlign: 'middle' }}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return <span style={{ marginRight: 8, fontSize: size, lineHeight: 1, verticalAlign: 'middle' }}>{flag}</span>;
 }
 
 export default function CountrySelect({ value, onChange, placeholder }: Props) {
@@ -30,7 +51,7 @@ export default function CountrySelect({ value, onChange, placeholder }: Props) {
       <button type="button" className="country-select-trigger" onClick={() => setOpen(o => !o)}>
         {value ? (
           <>
-            <span style={{ marginRight: 8 }}>{flagForNationality(value)}</span>
+            <FlagImage country={value} />
             {value}
           </>
         ) : (
@@ -59,7 +80,7 @@ export default function CountrySelect({ value, onChange, placeholder }: Props) {
                   className={`country-select-option ${value === c.country ? 'selected' : ''}`}
                   onClick={() => { onChange(c.country); setOpen(false); }}
                 >
-                  <span style={{ marginRight: 8 }}>{c.flag}</span>
+                  <FlagImage country={c.country} />
                   {c.country}
                 </button>
               ))
