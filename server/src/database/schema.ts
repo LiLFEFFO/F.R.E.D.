@@ -75,6 +75,7 @@ export async function initSchema() {
       name TEXT NOT NULL,
       number INTEGER NOT NULL,
       avatar TEXT DEFAULT '',
+      nationality TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
@@ -196,6 +197,7 @@ export async function initSchema() {
 
     -- Migrations for existing tables
     ALTER TABLE races ADD COLUMN IF NOT EXISTS has_sprint INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE drivers ADD COLUMN IF NOT EXISTS nationality TEXT NOT NULL DEFAULT '';
     ALTER TABLE scoring_systems ADD COLUMN IF NOT EXISTS sprint_points TEXT NOT NULL DEFAULT '[10,8,6,5,4,3,2,1]';
     ALTER TABLE race_results ADD COLUMN IF NOT EXISTS team_id TEXT REFERENCES teams(id) ON DELETE SET NULL;
     ALTER TABLE sprint_results ADD COLUMN IF NOT EXISTS team_id TEXT REFERENCES teams(id) ON DELETE SET NULL;

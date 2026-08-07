@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
+import CountryFlag from '../components/CountryFlag';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function DriverProfile() {
@@ -37,7 +38,7 @@ export default function DriverProfile() {
             </div>
             <div style={{ flex: 1, minWidth: 200 }}>
               <div className="flex items-center gap-3 flex-wrap mb-1">
-                <h1 className="driver-name">{driver.name}</h1>
+                <h1 className="driver-name"><CountryFlag nationality={driver.nationality} />{driver.name}</h1>
                 <span className="badge badge-blue">#{driver.number}</span>
                 {driver.position && <span className={`badge ${driver.position === 1 ? 'badge-gold' : ''}`}>#{driver.position} in standings</span>}
               </div>

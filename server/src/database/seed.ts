@@ -48,19 +48,19 @@ export default async function seed() {
   }
 
   const drivers = [
-    { id: uuidv4(), name: 'Charles Leclerc', team: teams[0].id, number: 16 },
-    { id: uuidv4(), name: 'Carlos Sainz', team: teams[0].id, number: 55 },
-    { id: uuidv4(), name: 'Max Verstappen', team: teams[1].id, number: 1 },
-    { id: uuidv4(), name: 'Sergio Perez', team: teams[1].id, number: 11 },
-    { id: uuidv4(), name: 'Lewis Hamilton', team: teams[2].id, number: 44 },
-    { id: uuidv4(), name: 'George Russell', team: teams[2].id, number: 63 },
-    { id: uuidv4(), name: 'Lando Norris', team: teams[3].id, number: 4 },
-    { id: uuidv4(), name: 'Oscar Piastri', team: teams[3].id, number: 81 },
+    { id: uuidv4(), name: 'Charles Leclerc', team: teams[0].id, number: 16, nationality: 'Monaco' },
+    { id: uuidv4(), name: 'Carlos Sainz', team: teams[0].id, number: 55, nationality: 'Spain' },
+    { id: uuidv4(), name: 'Max Verstappen', team: teams[1].id, number: 1, nationality: 'Netherlands' },
+    { id: uuidv4(), name: 'Sergio Perez', team: teams[1].id, number: 11, nationality: 'Mexico' },
+    { id: uuidv4(), name: 'Lewis Hamilton', team: teams[2].id, number: 44, nationality: 'United Kingdom' },
+    { id: uuidv4(), name: 'George Russell', team: teams[2].id, number: 63, nationality: 'United Kingdom' },
+    { id: uuidv4(), name: 'Lando Norris', team: teams[3].id, number: 4, nationality: 'United Kingdom' },
+    { id: uuidv4(), name: 'Oscar Piastri', team: teams[3].id, number: 81, nationality: 'Australia' },
   ];
   for (const d of drivers) {
     await db.execute(
-      'INSERT INTO drivers (id, championship_id, name, number, team_id, user_id) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
-      [d.id, champId, d.name, d.number, d.team, d.name === 'Max Verstappen' ? adminId : null]
+      'INSERT INTO drivers (id, championship_id, name, number, team_id, user_id, nationality) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING',
+      [d.id, champId, d.name, d.number, d.team, d.name === 'Max Verstappen' ? adminId : null, d.nationality]
     );
   }
 

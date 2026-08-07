@@ -54,7 +54,7 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
   try { nextRace = (await db.query("SELECT * FROM races WHERE championship_id = $1 AND status != 'completed' AND date >= CURRENT_DATE ORDER BY date ASC LIMIT 1", [champ.id]))[0] || null; } catch {}
   try { lastResults = await db.query(`
     SELECT rr.id, rr.race_id, rr.driver_id, rr.position, rr.points, rr.qualifying_position, rr.pole_position, rr.fastest_lap, rr.dnf,
-      d.name as driver_name, r.name as race_name, r.circuit, r.date as race_date
+      d.name as driver_name, d.nationality, r.name as race_name, r.circuit, r.date as race_date
     FROM race_results rr JOIN races r ON rr.race_id = r.id JOIN drivers d ON rr.driver_id = d.id
     WHERE r.championship_id = $1 ORDER BY r.date DESC LIMIT 10
   `, [champ.id]); } catch {}
@@ -119,7 +119,7 @@ router.post('/:id/recalculate', authenticate, requireElite, asyncHandler(async (
 
 router.get('/:id/standings', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const driverStandings = await db.query(`
-    SELECT ds.*, d.name as driver_name, d.number as driver_number, d.avatar, d.team_id,
+    SELECT ds.*, d.name as driver_name, d.number as driver_number, d.avatar, d.nationality, d.team_id,
       t.name as team_name, t.color as team_color
     FROM driver_standings ds JOIN drivers d ON ds.driver_id = d.id
     LEFT JOIN teams t ON d.team_id = t.id
@@ -152,7 +152,7 @@ router.put('/:id/scoring', authenticate, requireElite, asyncHandler(async (req: 
 
 router.get('/:id/statistics', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const drivers = await db.query(`
-    SELECT d.id, d.name, d.number, d.avatar, t.name as team_name, t.color as team_color,
+    SELECT d.id, d.name, d.number, d.avatar, d.nationality, t.name as team_name, t.color as team_color,
       ds.points, ds.wins, ds.podiums, ds.poles, ds.fastest_laps, ds.races_done,
       CASE WHEN ds.races_done > 0 THEN ROUND(ds.points * 1.0 / ds.races_done, 1) ELSE 0 END as avg_points,
       CASE WHEN ds.races_done > 0 THEN ROUND(ds.podiums * 100.0 / ds.races_done, 1) ELSE 0 END as podium_pct,
@@ -196,7 +196,7 @@ router.get('/:id/title-scenarios', optionalAuth, asyncHandler(async (req: AuthRe
   if (!nextRace) { res.json({ scenarios: [], concluded: false, no_next_race: true }); return; }
 
   const driverStandings = await db.query(`
-    SELECT ds.*, d.name as driver_name, d.number as driver_number, d.avatar, d.team_id,
+    SELECT ds.*, d.name as driver_name, d.number as driver_number, d.avatar, d.nationality, d.team_id,
       t.name as team_name, t.color as team_color
     FROM driver_standings ds JOIN drivers d ON ds.driver_id = d.id
     LEFT JOIN teams t ON d.team_id = t.id
@@ -243,7 +243,7 @@ router.get('/:id/title-scenarios', optionalAuth, asyncHandler(async (req: AuthRe
           desc = `Se ${d.driver_name} arriva ${posNeeded}° e ${leader.driver_name} non segna punti, vince il campionato.`;
         } else {
           desc = `${d.driver_name} è ancora in corsa ma non può vincere matematicamente alla prossima gara.`;
-          scenarios.push({ driver_id: d.id, driver_name: d.driver_name, driver_number: d.driver_number, avatar: d.avatar, team_name: d.team_name, team_color: d.team_color, current_points: d.points, can_win_next_race: false, position_needed: posNeeded, leader_driver_name: leader.driver_name, leader_driver_id: leader.driver_id, leader_points: leader.points, leader_position_limit: -1, scenario_description: desc });
+          scenarios.push({ driver_id: d.id, driver_name: d.driver_name, driver_number: d.driver_number, avatar: d.avatar, team_name: d.team_name, team_color: d.team_color, current_points: d.points, nationality: d.nationality, can_win_next_race: false, position_needed: posNeeded, leader_driver_name: leader.driver_name, leader_driver_id: leader.driver_id, leader_points: leader.points, leader_position_limit: -1, scenario_description: desc });
           continue;
         }
       } else {
@@ -252,7 +252,7 @@ router.get('/:id/title-scenarios', optionalAuth, asyncHandler(async (req: AuthRe
       }
     }
 
-    scenarios.push({ driver_id: d.id, driver_name: d.driver_name, driver_number: d.driver_number, avatar: d.avatar, team_name: d.team_name, team_color: d.team_color, current_points: d.points, can_win_next_race: canClinch, position_needed: posNeeded, leader_driver_name: leader.driver_name, leader_driver_id: leader.driver_id, leader_points: leader.points, leader_position_limit: leaderLimit, scenario_description: desc });
+    scenarios.push({ driver_id: d.id, driver_name: d.driver_name, driver_number: d.driver_number, avatar: d.avatar, team_name: d.team_name, team_color: d.team_color, current_points: d.points, nationality: d.nationality, can_win_next_race: canClinch, position_needed: posNeeded, leader_driver_name: leader.driver_name, leader_driver_id: leader.driver_id, leader_points: leader.points, leader_position_limit: leaderLimit, scenario_description: desc });
   }
 
   scenarios.sort((a, b) => (b.can_win_next_race ? 1 : 0) - (a.can_win_next_race ? 1 : 0));

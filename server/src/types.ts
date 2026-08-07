@@ -52,6 +52,7 @@ export interface Driver {
   name: string;
   number: number;
   avatar: string;
+  nationality: string;
   created_at: string;
 }
 

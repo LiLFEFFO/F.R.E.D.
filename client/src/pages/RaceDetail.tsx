@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
+import CountryFlag from '../components/CountryFlag';
 
 export default function RaceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -48,17 +49,17 @@ export default function RaceDetail() {
           <div className="grid grid-4 mb-6">
             <div className="stat-card">
               <span className="stat-icon">🥇</span>
-              <div className="value" style={{ fontSize: '1rem' }}>{winner?.driver_name || '—'}</div>
+              <div className="value" style={{ fontSize: '1rem' }}><CountryFlag nationality={winner?.driver_nationality} />{winner?.driver_name || '—'}</div>
               <div className="label">Winner</div>
             </div>
             <div className="stat-card">
               <span className="stat-icon">🏎️</span>
-              <div className="value" style={{ fontSize: '1rem' }}>{topPole?.driver_name || '—'}</div>
+              <div className="value" style={{ fontSize: '1rem' }}><CountryFlag nationality={topPole?.driver_nationality} />{topPole?.driver_name || '—'}</div>
               <div className="label">Pole Position</div>
             </div>
             <div className="stat-card">
               <span className="stat-icon">⏱️</span>
-              <div className="value" style={{ fontSize: '1rem' }}>{topFL?.driver_name || '—'}</div>
+              <div className="value" style={{ fontSize: '1rem' }}><CountryFlag nationality={topFL?.driver_nationality} />{topFL?.driver_name || '—'}</div>
               <div className="label">Fastest Lap</div>
             </div>
             <div className="stat-card">
@@ -89,7 +90,7 @@ export default function RaceDetail() {
                           {r.position}°
                         </span>
                       </td>
-                      <td><Link to={`/drivers/${r.driver_id}`} className="driver-link">{r.driver_name}</Link></td>
+                      <td><Link to={`/drivers/${r.driver_id}`} className="driver-link"><CountryFlag nationality={r.driver_nationality} />{r.driver_name}</Link></td>
                       <td className="text-muted text-sm">#{r.driver_number}</td>
                       <td><span className="team-dot" style={{ background: r.team_color || 'var(--text-muted)' }} />{r.team_name || '-'}</td>
                       <td className="font-bold">{r.points}</td>
@@ -139,7 +140,7 @@ export default function RaceDetail() {
                           {r.position}°
                         </span>
                       </td>
-                      <td><Link to={`/drivers/${r.driver_id}`} className="driver-link">{r.driver_name}</Link></td>
+                      <td><Link to={`/drivers/${r.driver_id}`} className="driver-link"><CountryFlag nationality={r.driver_nationality} />{r.driver_name}</Link></td>
                       <td className="text-muted text-sm">#{r.driver_number}</td>
                       <td><span className="team-dot" style={{ background: r.team_color || 'var(--text-muted)' }} />{r.team_name || '-'}</td>
                       <td className="font-bold">{r.points}</td>

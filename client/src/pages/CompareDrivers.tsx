@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import CountryFlag from '../components/CountryFlag';
+import { flagForNationality } from '../utils/nationalities';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export default function CompareDrivers() {
@@ -64,14 +66,14 @@ export default function CompareDrivers() {
               <label className="input-label">Driver 1</label>
               <select value={driver1} onChange={e => setDriver1(e.target.value)} disabled={!selectedChamp}>
                 <option value="">Select driver</option>
-                {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                {drivers.map(d => <option key={d.id} value={d.id}>{flagForNationality(d.nationality) || ''} {d.name}</option>)}
               </select>
             </div>
             <div>
               <label className="input-label">Driver 2</label>
               <select value={driver2} onChange={e => setDriver2(e.target.value)} disabled={!selectedChamp}>
                 <option value="">Select driver</option>
-                {drivers.filter(d => d.id !== driver1).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                {drivers.filter(d => d.id !== driver1).map(d => <option key={d.id} value={d.id}>{flagForNationality(d.nationality) || ''} {d.name}</option>)}
               </select>
             </div>
           </div>
@@ -90,7 +92,7 @@ export default function CompareDrivers() {
                       {d.name?.substring(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg">{d.name}</h3>
+                      <h3 className="font-semibold text-lg"><CountryFlag nationality={d.nationality} />{d.name}</h3>
                       <p className="text-sm text-secondary">{d.team_name || 'No team'} · #{d.number}</p>
                     </div>
                   </div>

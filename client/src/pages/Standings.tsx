@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
+import CountryFlag from '../components/CountryFlag';
 import type { Championship, DriverStanding, ConstructorStanding } from '../types';
 
 export default function Standings() {
@@ -76,7 +77,7 @@ export default function Standings() {
                       </td>
                       <td>
                         <Link to={`/drivers/${d.driver_id}`} style={{ color: 'var(--text)', fontWeight: 500 }} onClick={e => e.stopPropagation()}>
-                          {d.driver_name}
+                          <CountryFlag nationality={d.nationality} />{d.driver_name}
                         </Link>
                         <span className="text-muted text-xs" style={{ marginLeft: 4 }}>#{d.driver_number}</span>
                       </td>
@@ -133,7 +134,7 @@ export default function Standings() {
                 <div key={d.id} className="card card-interactive" style={{ padding: 18 }} onClick={() => setSelectedDriver(d.id === selectedDriver ? null : d.id)}>
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <h3 className="font-semibold" style={{ fontSize: '0.9rem' }}>{d.name}</h3>
+                      <h3 className="font-semibold" style={{ fontSize: '0.9rem' }}><CountryFlag nationality={d.nationality} />{d.name}</h3>
                       <p className="text-xs text-secondary">
                         <span className="team-dot" style={{ background: d.team_color }} /> {d.team_name}
                       </p>

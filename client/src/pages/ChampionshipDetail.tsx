@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
+import CountryFlag from '../components/CountryFlag';
 import type { Championship, DriverStanding, ConstructorStanding, Race, TitleScenariosResponse } from '../types';
 
 export default function ChampionshipDetail() {
@@ -104,7 +105,7 @@ export default function ChampionshipDetail() {
                             </span>
                             <PositionIndicator current={d.position} previous={d.previous_position} />
                           </td>
-                          <td><Link to={`/drivers/${d.driver_id}`} className="driver-link" style={{ fontWeight: 500 }}>{d.driver_name}</Link></td>
+                          <td><Link to={`/drivers/${d.driver_id}`} className="driver-link" style={{ fontWeight: 500 }}><CountryFlag nationality={d.nationality} />{d.driver_name}</Link></td>
                           <td><span className="team-dot" style={{ background: d.team_color || 'var(--text-muted)' }} />{d.team_name || '-'}</td>
                           <td className="font-bold text-accent">{d.points}</td>
                         </tr>
@@ -165,7 +166,7 @@ export default function ChampionshipDetail() {
                           <td><Link to={`/races/${r.race_id}`} style={{ fontWeight: 500 }}>{r.race_name}</Link></td>
                           <td className="text-secondary text-sm">{r.circuit}</td>
                           <td className="text-muted text-sm">{new Date(r.race_date).toLocaleDateString()}</td>
-                          <td className="font-medium">{r.driver_name}</td>
+                          <td className="font-medium"><CountryFlag nationality={r.nationality} />{r.driver_name}</td>
                           <td><span className={`badge ${r.position === 1 ? 'badge-gold' : r.position <= 3 ? 'badge-green' : ''}`}>{r.position}°</span></td>
                           <td className="text-muted text-xs">{r.qualifying_position != null ? r.qualifying_position : '—'}</td>
                           <td className="font-bold">{r.points}</td>
@@ -212,7 +213,7 @@ export default function ChampionshipDetail() {
                       </td>
                       <td>
                         <Link to={`/drivers/${d.driver_id}`} className="driver-link" style={{ fontWeight: 500 }}>
-                          {d.driver_name}
+                          <CountryFlag nationality={d.nationality} />{d.driver_name}
                         </Link>
                         <span className="text-muted text-xs" style={{ marginLeft: 6 }}>#{d.driver_number}</span>
                       </td>
@@ -323,7 +324,7 @@ export default function ChampionshipDetail() {
                   }}>
                     <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                       <div>
-                        <span className="font-semibold text-sm">{s.driver_name}</span>
+                        <span className="font-semibold text-sm"><CountryFlag nationality={s.nationality} />{s.driver_name}</span>
                         <span className="text-muted text-xs" style={{ marginLeft: 6 }}>#{s.driver_number}</span>
                         <span className="text-xs" style={{ color: s.team_color, marginLeft: 4 }}>■ {s.team_name}</span>
                       </div>

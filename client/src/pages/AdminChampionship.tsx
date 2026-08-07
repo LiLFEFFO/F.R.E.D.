@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
+import CountrySelect from '../components/CountrySelect';
+import CountryFlag from '../components/CountryFlag';
 
 export default function AdminChampionship() {
   const { id } = useParams<{ id: string }>();
@@ -28,13 +30,13 @@ export default function AdminChampionship() {
   useEffect(() => { loadData(); loadCollaborators(); }, [id]);
 
   const [showAddDriver, setShowAddDriver] = useState(false);
-  const [driverForm, setDriverForm] = useState({ name: '', number: 0, team_id: '' });
+  const [driverForm, setDriverForm] = useState({ name: '', number: 0, team_id: '', nationality: '' });
 
   const addDriver = async () => {
     if (!driverForm.name || !driverForm.number) return;
-    await api.drivers.create({ championship_id: id, ...driverForm, team_id: driverForm.team_id || null });
+    await api.drivers.create({ championship_id: id, ...driverForm, team_id: driverForm.team_id || null, nationality: driverForm.nationality });
     setShowAddDriver(false);
-    setDriverForm({ name: '', number: 0, team_id: '' });
+    setDriverForm({ name: '', number: 0, team_id: '', nationality: '' });
     loadData();
   };
 
@@ -426,7 +428,7 @@ export default function AdminChampionship() {
                   {drivers.map(d => (
                     <tr key={d.id}>
                       <td className="font-bold">#{d.number}</td>
-                      <td style={{ fontWeight: 500 }}>{d.name}</td>
+                      <td style={{ fontWeight: 500 }}><CountryFlag nationality={d.nationality} />{d.name}</td>
                       <td>
                         <span className="team-dot" style={{ background: d.team_color || 'var(--text-muted)' }} />
                         <select value={d.team_id || ''} onChange={async e => {
@@ -563,6 +565,10 @@ export default function AdminChampionship() {
                 <option value="">No team</option>
                 {teams.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
+              <div>
+                <label className="form-label">Nationality</label>
+                <CountrySelect value={driverForm.nationality} onChange={v => setDriverForm(f => ({ ...f, nationality: v }))} />
+              </div>
               <button className="btn btn-primary" onClick={addDriver}>Add Driver</button>
             </div>
           </Modal>
@@ -918,7 +924,7 @@ export default function AdminChampionship() {
                               <span className="team-dot" style={{ background: team?.color || 'var(--text-muted)' }} />
                               {raceExtras[driverId]?.present === false && reserveDriver && (
                                 <span className="text-xs text-accent-orange" style={{ marginLeft: 2 }}>
-                                  → {reserveDriver.name}
+                                  → <CountryFlag nationality={reserveDriver.nationality} />{reserveDriver.name}
                                 </span>
                               )}
                               <label className="result-checkbox present-checkbox">

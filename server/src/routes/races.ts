@@ -21,7 +21,7 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
   if (!race) { res.status(404).json({ error: 'Race not found' }); return; }
 
   const results = await db.query(`
-    SELECT rr.*, d.name as driver_name, d.number as driver_number, d.avatar, d.team_id,
+    SELECT rr.*, d.name as driver_name, d.number as driver_number, d.avatar, d.nationality, d.team_id,
       t.name as team_name, t.color as team_color
     FROM race_results rr JOIN drivers d ON rr.driver_id = d.id
     LEFT JOIN teams t ON d.team_id = t.id
@@ -31,9 +31,9 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
   let sprint_results: any[] = [];
   if (race.has_sprint) {
     sprint_results = await db.query(`
-      SELECT sr.*, d.name as driver_name, d.number as driver_number, d.avatar, d.team_id,
-        t.name as team_name, t.color as team_color
-      FROM sprint_results sr JOIN drivers d ON sr.driver_id = d.id
+SELECT sr.*, d.name as driver_name, d.number as driver_number, d.avatar, d.nationality, d.team_id,
+      t.name as team_name, t.color as team_color
+    FROM sprint_results sr JOIN drivers d ON sr.driver_id = d.id
       LEFT JOIN teams t ON d.team_id = t.id
       WHERE sr.race_id = $1 ORDER BY sr.position ASC
     `, [race.id]);
@@ -118,7 +118,7 @@ router.post('/:id/results', authenticate, requireElite, asyncHandler(async (req:
   await recalculateChampionship(race.championship_id);
 
   const updatedResults = await db.query(`
-    SELECT rr.*, d.name as driver_name, d.number as driver_number
+    SELECT rr.*, d.name as driver_name, d.number as driver_number, d.nationality
     FROM race_results rr JOIN drivers d ON rr.driver_id = d.id
     WHERE rr.race_id = $1 ORDER BY rr.position ASC
   `, [race.id]);
@@ -174,7 +174,7 @@ router.post('/:id/sprint-results', authenticate, requireElite, asyncHandler(asyn
   await recalculateChampionship(race.championship_id);
 
   const updatedResults = await db.query(`
-    SELECT sr.*, d.name as driver_name, d.number as driver_number
+    SELECT sr.*, d.name as driver_name, d.number as driver_number, d.nationality
     FROM sprint_results sr JOIN drivers d ON sr.driver_id = d.id
     WHERE sr.race_id = $1 ORDER BY sr.position ASC
   `, [race.id]);

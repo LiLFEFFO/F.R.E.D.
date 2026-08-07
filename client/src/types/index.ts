@@ -51,6 +51,7 @@ export interface SprintResult {
   driver_name?: string;
   driver_number?: number;
   driver_avatar?: string;
+  driver_nationality?: string;
   team_name?: string;
   team_color?: string;
 }
@@ -73,6 +74,7 @@ export interface Driver {
   name: string;
   number: number;
   avatar: string;
+  nationality?: string;
   team_name?: string;
   team_color?: string;
   points?: number;
@@ -116,6 +118,7 @@ export interface RaceResult {
   driver_name?: string;
   driver_number?: number;
   driver_avatar?: string;
+  driver_nationality?: string;
   team_name?: string;
   team_color?: string;
 }
@@ -124,6 +127,7 @@ export interface TitleScenario {
   driver_id: string;
   driver_name: string;
   driver_number: number;
+  nationality?: string;
   avatar: string;
   team_name: string;
   team_color: string;
@@ -153,6 +157,7 @@ export interface DriverStanding {
   driver_name: string;
   driver_number: number;
   avatar: string;
+  nationality?: string;
   team_id: string | null;
   team_name: string;
   team_color: string;
@@ -207,6 +212,7 @@ export interface DriverStat {
   name: string;
   number: number;
   avatar: string;
+  nationality?: string;
   team_name: string;
   team_color: string;
   points: number;

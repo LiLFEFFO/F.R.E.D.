@@ -66,14 +66,14 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
 }));
 
 router.post('/', authenticate, requireElite, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { championship_id, name, number, team_id, user_id, avatar } = req.body;
+  const { championship_id, name, number, team_id, user_id, avatar, nationality } = req.body;
   if (!championship_id || !name || !number) { res.status(400).json({ error: 'Championship, name and number are required' }); return; }
   if (!await canManageChampionship(championship_id, req.user!.id)) {
     res.status(403).json({ error: 'Not authorized' }); return;
   }
   const id = uuidv4();
-  await db.execute('INSERT INTO drivers (id, championship_id, name, number, team_id, user_id, avatar) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-    [id, championship_id, name, number, team_id || null, user_id || null, avatar || '']);
+  await db.execute('INSERT INTO drivers (id, championship_id, name, number, team_id, user_id, avatar, nationality) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+    [id, championship_id, name, number, team_id || null, user_id || null, avatar || '', nationality || '']);
   res.status(201).json(await db.queryOne('SELECT * FROM drivers WHERE id = $1', [id]));
 }));
 
@@ -83,11 +83,11 @@ router.put('/:id', authenticate, requireElite, asyncHandler(async (req: AuthRequ
   if (!await canManageChampionship(driver.championship_id, req.user!.id)) {
     res.status(403).json({ error: 'Not authorized' }); return;
   }
-  const { name, number, team_id, user_id, avatar } = req.body;
+  const { name, number, team_id, user_id, avatar, nationality } = req.body;
   await db.execute(`
     UPDATE drivers SET name = COALESCE($1, name), number = COALESCE($2, number),
-    team_id = $3, user_id = $4, avatar = COALESCE($5, avatar) WHERE id = $6
-  `, [name, number, team_id !== undefined ? team_id : driver.team_id, user_id !== undefined ? user_id : driver.user_id, avatar, req.params.id]);
+    team_id = $3, user_id = $4, avatar = COALESCE($5, avatar), nationality = COALESCE($6, nationality) WHERE id = $7
+  `, [name, number, team_id !== undefined ? team_id : driver.team_id, user_id !== undefined ? user_id : driver.user_id, avatar, nationality, req.params.id]);
   res.json(await db.queryOne('SELECT * FROM drivers WHERE id = $1', [req.params.id]));
 }));
 

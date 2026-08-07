@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
+import CountryFlag from '../components/CountryFlag';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
 const COLORS = ['#4f46e5', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316'];
@@ -104,7 +105,7 @@ export default function Statistics() {
                 {drivers.map((d: any) => (
                   <tr key={d.id}>
                     <td className="font-bold">#{d.position}</td>
-                    <td><Link to={`/drivers/${d.id}`} style={{ color: 'var(--text)', fontWeight: 500 }}>{d.name}</Link></td>
+                    <td><Link to={`/drivers/${d.id}`} style={{ color: 'var(--text)', fontWeight: 500 }}><CountryFlag nationality={d.nationality} />{d.name}</Link></td>
                     <td><span className="team-dot" style={{ background: d.team_color }} /> {d.team_name}</td>
                     <td className="font-bold text-accent">{d.points}</td>
                     <td>{d.wins}</td>
