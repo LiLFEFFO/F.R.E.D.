@@ -50,34 +50,32 @@ export default function ResultsMatrix() {
   // drivers are already sorted by position, compute leader points
   const leaderPoints = Math.max(0, ...drivers.map((d: any) => d.points || 0));
 
-  const getPointsForCell = (race: any, driverId: string): { display: string; halo: string; title: string } => {
+  const getPointsForCell = (race: any, driverId: string): { display: string; halo: string; isFastest: boolean; title: string } => {
     const cell = matrix[driverId]?.[race.id];
-    if (!cell) return { display: '—', halo: '', title: '' };
-    if (race.status !== 'completed') return { display: '—', halo: '', title: 'Not completed' };
+    if (!cell) return { display: '—', halo: '', isFastest: false, title: '' };
+    if (race.status !== 'completed') return { display: '—', halo: '', isFastest: false, title: 'Not completed' };
     const hasResult = cell.race || cell.sprint;
-    if (!hasResult) return { display: '0', halo: '', title: 'No result' };
-    // DNF -> OUT, no points but show OUT
+    if (!hasResult) return { display: '0', halo: '', isFastest: false, title: 'No result' };
     const raceDNF = cell.race?.dnf && cell.race?.present;
-    const sprintDNF = cell.sprint?.dnf && cell.sprint?.present;
-    // if both DNF or sole race DNF with 0 points, show OUT
     const totalPoints = (cell.race?.points || 0) + (cell.sprint?.points || 0);
     const isOut = (raceDNF && totalPoints === 0) || (cell.race && !cell.race.present && (!cell.sprint || !cell.sprint.present));
-    // special: if DNF but had points from sprint, still show points, not OUT
     if (isOut) {
       const q = cell.qualifying != null ? `Q${cell.qualifying}` : '-';
-      return { display: 'OUT', halo: 'out', title: `${q} · DNF` };
+      return { display: 'OUT', halo: 'out', isFastest: false, title: `${q} · DNF` };
     }
-    if (totalPoints === 0) return { display: '0', halo: '', title: `Q${cell.qualifying ?? '-'} · 0 pts` };
+    if (totalPoints === 0) return { display: '0', halo: '', isFastest: false, title: `Q${cell.qualifying ?? '-'} · 0 pts` };
+    // halo based on finishing position: P1 gold, P2 silver, P3 bronze
     let halo = '';
-    if (totalPoints >= 25) halo = 'halo-gold';
-    else if (totalPoints >= 18) halo = 'halo-silver';
-    else if (totalPoints >= 15) halo = 'halo-bronze';
-    else if (totalPoints >= 10) halo = 'halo-purple';
+    const pos = cell.race?.position;
+    if (pos === 1) halo = 'halo-gold';
+    else if (pos === 2) halo = 'halo-silver';
+    else if (pos === 3) halo = 'halo-bronze';
+    const isFastest = !!(cell.race?.fastest_lap || cell.sprint?.fastest_lap);
     const parts = [];
     if (cell.qualifying != null) parts.push(`Q${cell.qualifying}`);
-    if (race.has_sprint && cell.sprint) parts.push(`S P${cell.sprint.position} (${cell.sprint.points}p)`);
-    if (cell.race) parts.push(`R P${cell.race.position} (${cell.race.points}p)`);
-    return { display: String(totalPoints), halo, title: parts.join(' · ') };
+    if (race.has_sprint && cell.sprint) parts.push(`S P${cell.sprint.position} (${cell.sprint.points}p${cell.sprint.fastest_lap ? ' FL' : ''})`);
+    if (cell.race) parts.push(`R P${cell.race.position} (${cell.race.points}p${cell.race.fastest_lap ? ' FL' : ''})`);
+    return { display: String(totalPoints), halo, isFastest, title: parts.join(' · ') };
   };
 
   return (
@@ -123,15 +121,13 @@ export default function ResultsMatrix() {
                         <td className="gt-cell gt-points">{d.points || 0}</td>
                         <td className="gt-cell gt-dif">{isLeader ? '--' : `-${dif}`}</td>
                         {races.map(r => {
-                          const { display, halo, title } = getPointsForCell(r, d.id);
+                          const { display, halo, isFastest, title } = getPointsForCell(r, d.id);
                           return (
                             <td key={r.id} className="gt-cell gt-race" title={title}>
                               {display === 'OUT' ? (
                                 <span className="gt-out">OUT</span>
-                              ) : halo ? (
-                                <span className={`gt-halo ${halo}`}>{display}</span>
                               ) : (
-                                <span className="gt-plain">{display}</span>
+                                <span className={`${halo ? `gt-halo ${halo}` : 'gt-plain'} ${isFastest ? 'gt-fastest' : ''}`}>{display}</span>
                               )}
                             </td>
                           );
@@ -142,7 +138,7 @@ export default function ResultsMatrix() {
                 </tbody>
               </table>
             </div>
-            <div className="gt-footnote">Points per race (Race + Sprint). <span className="gt-halo halo-gold" style={{ width: 18, height: 18, display: 'inline-flex', verticalAlign: 'middle', margin: '0 4px' }}>25</span> win &nbsp; <span className="gt-halo halo-silver" style={{ width: 18, height: 18, display: 'inline-flex', verticalAlign: 'middle', margin: '0 4px' }}>18</span> P2 &nbsp; <span className="gt-halo halo-bronze" style={{ width: 18, height: 18, display: 'inline-flex', verticalAlign: 'middle', margin: '0 4px' }}>15</span> P3 &nbsp; OUT = DNF / DNS &nbsp; — = not held</div>
+            <div className="gt-footnote">Points per race (Race + Sprint). <span className="gt-halo halo-gold" style={{ width: 18, height: 18, display: 'inline-flex', verticalAlign: 'middle', margin: '0 4px' }}>25</span> P1 &nbsp; <span className="gt-halo halo-silver" style={{ width: 18, height: 18, display: 'inline-flex', verticalAlign: 'middle', margin: '0 4px' }}>18</span> P2 &nbsp; <span className="gt-halo halo-bronze" style={{ width: 18, height: 18, display: 'inline-flex', verticalAlign: 'middle', margin: '0 4px' }}>15</span> P3 &nbsp; <span style={{ color: '#a78bfa', fontWeight: 700, margin: '0 4px' }}>13</span> Fastest Lap &nbsp; OUT = DNF / DNS &nbsp; — = not held</div>
           </div>
         )}
       </div>
@@ -229,7 +225,9 @@ export default function ResultsMatrix() {
         .halo-gold { border-color: #facc15; color: #facc15; }
         .halo-silver { border-color: #cbd5e1; color: #e2e8f0; }
         .halo-bronze { border-color: #d6a074; color: #e8b48a; }
-        .halo-purple { border-color: #a78bfa; color: #c4b5fd; }
+        .gt-fastest { color: #a78bfa !important; }
+        .gt-halo.gt-fastest { color: #a78bfa !important; }
+        .gt-plain.gt-fastest { color: #a78bfa !important; }
         .gt-footnote {
           padding: 8px 12px;
           font-size: 0.66rem;
