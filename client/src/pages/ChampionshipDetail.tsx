@@ -57,10 +57,36 @@ export default function ChampionshipDetail() {
           <button className={`tab ${tab === 'constructors' ? 'active' : ''}`} onClick={() => setTab('constructors')}>Constructors</button>
           <button className={`tab ${tab === 'calendar' ? 'active' : ''}`} onClick={() => setTab('calendar')}>Calendar</button>
           <button className={`tab ${tab === 'title' ? 'active' : ''}`} onClick={() => setTab('title')}>Title Fight</button>
+          <Link to={`/championships/${champ.id}/matrix`} className="tab" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Full Sheet</Link>
+          <Link to={`/championships/${champ.id}/compare`} className="tab" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Compare</Link>
         </div>
 
         {tab === 'overview' && (
           <>
+            <div className="grid grid-2 mb-4">
+              <Link to={`/championships/${champ.id}/matrix`} style={{ textDecoration: 'none' }}>
+                <div className="card card-interactive" style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div className="feature-icon" style={{ background: 'var(--accent-blue-light)', color: 'var(--accent-blue)', width: 40, height: 40, marginBottom: 0, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                  </div>
+                  <div>
+                    <div className="font-semibold" style={{ color: 'var(--text)' }}>Full Race Sheet</div>
+                    <div className="text-xs text-secondary">All races — Qualifying / Sprint / Race in one view</div>
+                  </div>
+                </div>
+              </Link>
+              <Link to={`/championships/${champ.id}/compare`} style={{ textDecoration: 'none' }}>
+                <div className="card card-interactive" style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div className="feature-icon" style={{ background: 'var(--accent-purple)', color: '#fff', width: 40, height: 40, marginBottom: 0, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                  </div>
+                  <div>
+                    <div className="font-semibold" style={{ color: 'var(--text)' }}>Compare Drivers</div>
+                    <div className="text-xs text-secondary">Multi-driver points chart (team colors)</div>
+                  </div>
+                </div>
+              </Link>
+            </div>
             {nextRace && (
               <div className="card mb-4 next-race-card">
                 <div className="card-header">

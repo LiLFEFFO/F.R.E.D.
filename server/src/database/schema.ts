@@ -17,6 +17,8 @@ export const db = {
   pool,
 };
 
+export { pool };
+
 export async function initSchema() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (

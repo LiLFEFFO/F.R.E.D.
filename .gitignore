@@ -7,3 +7,4 @@ server/dist/
 server/fred.db
 server/uploads/
 server/.env
+server/backups/

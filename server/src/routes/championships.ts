@@ -177,6 +177,82 @@ router.get('/:id/statistics', optionalAuth, asyncHandler(async (req: AuthRequest
   res.json({ drivers, race_history: Object.values(raceMap) });
 }));
 
+router.get('/:id/results-matrix', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const champ = await db.queryOne('SELECT * FROM championships WHERE id = $1', [req.params.id]) as any;
+  if (!champ) { res.status(404).json({ error: 'Championship not found' }); return; }
+
+  const drivers = await db.query(`
+    SELECT d.id, d.name, d.number, d.avatar, d.nationality, d.team_id, t.name as team_name, t.color as team_color,
+      ds.position, ds.points
+    FROM drivers d
+    LEFT JOIN teams t ON d.team_id = t.id
+    LEFT JOIN driver_standings ds ON ds.driver_id = d.id AND ds.championship_id = $1
+    WHERE d.championship_id = $1
+    ORDER BY COALESCE(ds.position, 999), d.name ASC
+  `, [champ.id]) as any[];
+
+  const races = await db.query(`
+    SELECT id, name, circuit, date, has_sprint, status
+    FROM races WHERE championship_id = $1 ORDER BY date ASC
+  `, [champ.id]) as any[];
+
+  if (races.length === 0 || drivers.length === 0) {
+    res.json({ championship: champ, drivers, races, matrix: {} });
+    return;
+  }
+
+  const raceIds = races.map((r: any) => r.id);
+
+  const raceResults = await db.query(`
+    SELECT rr.race_id, rr.driver_id, rr.position, rr.points, rr.qualifying_position, rr.pole_position, rr.fastest_lap, rr.dnf, rr.present
+    FROM race_results rr WHERE rr.race_id = ANY($1)
+  `, [raceIds]) as any[];
+
+  const sprintResults = await db.query(`
+    SELECT sr.race_id, sr.driver_id, sr.position, sr.points, sr.dnf, sr.present, sr.fastest_lap
+    FROM sprint_results sr WHERE sr.race_id = ANY($1)
+  `, [raceIds]) as any[];
+
+  const matrix: Record<string, Record<string, any>> = {};
+  for (const d of drivers) matrix[d.id] = {};
+
+  for (const r of races) {
+    for (const d of drivers) {
+      matrix[d.id][r.id] = { race_id: r.id, qualifying: null, race: null, sprint: null };
+    }
+  }
+
+  for (const rr of raceResults) {
+    if (matrix[rr.driver_id]?.[rr.race_id]) {
+      matrix[rr.driver_id][rr.race_id].qualifying = rr.qualifying_position;
+      matrix[rr.driver_id][rr.race_id].race = {
+        position: rr.position,
+        points: rr.points,
+        dnf: !!rr.dnf,
+        present: !!rr.present,
+        pole: !!rr.pole_position,
+        fastest_lap: !!rr.fastest_lap,
+      };
+    }
+  }
+
+  for (const sr of sprintResults) {
+    if (matrix[sr.driver_id]?.[sr.race_id]) {
+      matrix[sr.driver_id][sr.race_id].sprint = {
+        position: sr.position,
+        points: sr.points,
+        dnf: !!sr.dnf,
+        present: !!sr.present,
+        fastest_lap: !!sr.fastest_lap,
+      };
+    }
+  }
+
+  // also include drivers without results for scheduled races - already null
+
+  res.json({ championship: champ, drivers, races, matrix });
+}));
+
 router.get('/:id/title-scenarios', optionalAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const champ = await db.queryOne('SELECT * FROM championships WHERE id = $1', [req.params.id]) as any;
   if (!champ) { res.status(404).json({ error: 'Championship not found' }); return; }
@@ -231,8 +307,8 @@ router.get('/:id/title-scenarios', optionalAuth, asyncHandler(async (req: AuthRe
       }
       canClinch = true;
       desc = guaranteed
-        ? `${d.driver_name} vince il campionato se arriva ${posNeeded}° (o meglio)!`
-        : `${d.driver_name} vince se arriva ${posNeeded}° e gli inseguitori non prendono punti.`;
+        ? `${d.driver_name} wins the championship if they finish ${posNeeded}${posNeeded === 1 ? 'st' : posNeeded === 2 ? 'nd' : posNeeded === 3 ? 'rd' : 'th'} (or better)!`
+        : `${d.driver_name} wins if they finish ${posNeeded}${posNeeded === 1 ? 'st' : posNeeded === 2 ? 'nd' : posNeeded === 3 ? 'rd' : 'th'} and the chasers score no points.`;
     } else {
       const dNew = d.points + pointsArray[posNeeded - 1];
       for (let lp = 1; lp <= pointsArray.length; lp++) {
@@ -240,14 +316,14 @@ router.get('/:id/title-scenarios', optionalAuth, asyncHandler(async (req: AuthRe
       }
       if (leaderLimit === -1) {
         if (dNew > leader.points + (afterNext * maxPerRace)) {
-          desc = `Se ${d.driver_name} arriva ${posNeeded}° e ${leader.driver_name} non segna punti, vince il campionato.`;
+          desc = `If ${d.driver_name} finishes ${posNeeded}${posNeeded === 1 ? 'st' : posNeeded === 2 ? 'nd' : posNeeded === 3 ? 'rd' : 'th'} and ${leader.driver_name} scores no points, they win the championship.`;
         } else {
-          desc = `${d.driver_name} è ancora in corsa ma non può vincere matematicamente alla prossima gara.`;
+          desc = `${d.driver_name} is still in contention but cannot clinch the title mathematically at the next race.`;
           scenarios.push({ driver_id: d.id, driver_name: d.driver_name, driver_number: d.driver_number, avatar: d.avatar, team_name: d.team_name, team_color: d.team_color, current_points: d.points, nationality: d.nationality, can_win_next_race: false, position_needed: posNeeded, leader_driver_name: leader.driver_name, leader_driver_id: leader.driver_id, leader_points: leader.points, leader_position_limit: -1, scenario_description: desc });
           continue;
         }
       } else {
-        desc = `Se ${d.driver_name} arriva ${posNeeded}° (o meglio) E ${leader.driver_name} arriva ${leaderLimit}° (o peggio), ${d.driver_name} vince il campionato!`;
+        desc = `If ${d.driver_name} finishes ${posNeeded}${posNeeded === 1 ? 'st' : posNeeded === 2 ? 'nd' : posNeeded === 3 ? 'rd' : 'th'} (or better) AND ${leader.driver_name} finishes ${leaderLimit}${leaderLimit === 1 ? 'st' : leaderLimit === 2 ? 'nd' : leaderLimit === 3 ? 'rd' : 'th'} (or worse), ${d.driver_name} wins the championship!`;
         canClinch = true;
       }
     }

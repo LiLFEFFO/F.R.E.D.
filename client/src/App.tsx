@@ -15,6 +15,8 @@ import RaceDetail from './pages/RaceDetail';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminChampionship from './pages/AdminChampionship';
 import CompareDrivers from './pages/CompareDrivers';
+import ResultsMatrix from './pages/ResultsMatrix';
+import ChampionshipCompare from './pages/ChampionshipCompare';
 import News from './pages/News';
 import NotFound from './pages/NotFound';
 
@@ -38,6 +40,8 @@ export default function App() {
         <Route path="/championships/:id" element={<ChampionshipDetail />} />
         <Route path="/championships/:id/standings" element={<Standings />} />
         <Route path="/championships/:id/statistics" element={<Statistics />} />
+        <Route path="/championships/:id/matrix" element={<ResultsMatrix />} />
+        <Route path="/championships/:id/compare" element={<ChampionshipCompare />} />
         <Route path="/drivers/:id" element={<DriverProfile />} />
         <Route path="/races/:id" element={<RaceDetail />} />
         <Route path="/compare" element={<CompareDrivers />} />
