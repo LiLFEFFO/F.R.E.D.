@@ -164,9 +164,9 @@ export default function ChampionshipCompare() {
               <div style={{ width: '100%', height: 380 }}>
                 <ResponsiveContainer>
                   <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="name" stroke="var(--border)" fontSize={11} tick={{ fill: 'var(--text-muted)' }} interval={0} angle={-20} textAnchor="end" height={50} />
-                    <YAxis stroke="var(--border)" fontSize={11} tick={{ fill: 'var(--text-muted)' }} allowDecimals={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.6} />
+                    <XAxis dataKey="name" stroke="var(--border)" fontSize={11} tick={{ fill: 'var(--text-secondary)' }} interval={0} angle={-20} textAnchor="end" height={50} />
+                    <YAxis stroke="var(--border)" fontSize={11} tick={{ fill: 'var(--text-secondary)' }} allowDecimals={false} />
                     <Tooltip
                       contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', color: 'var(--text)' }}
                       labelStyle={{ color: 'var(--text)' }}
@@ -287,7 +287,11 @@ export default function ChampionshipCompare() {
           background: var(--bg-card); cursor: pointer; transition: all var(--transition); font-size: 0.85rem; font-weight: 500; text-align: left; width: 100%;
         }
         .driver-select-card:hover { border-color: var(--text-muted); transform: translateY(-1px); }
-        .driver-select-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .driver-select-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+        .recharts-legend-item-text { color: var(--text) !important; fill: var(--text) !important; }
+        .recharts-default-tooltip { background: var(--bg-card) !important; border: 1px solid var(--border) !important; color: var(--text) !important; }
+        .recharts-tooltip-label { color: var(--text) !important; }
+        .recharts-cartesian-axis-tick-value { fill: var(--text-secondary) !important; }
       `}</style>
     </div>
   );
