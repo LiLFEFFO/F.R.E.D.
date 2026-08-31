@@ -2,7 +2,24 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import CountryFlag from '../components/CountryFlag';
+import { useTheme } from '../contexts/ThemeContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+
+function readableTeamColor(color: string | undefined, theme: 'light' | 'dark'): string {
+  if (!color) return theme === 'dark' ? '#818cf8' : '#4f46e5';
+  let c = color.trim();
+  if (!c.startsWith('#')) return c;
+  if (c.length === 4) c = '#' + c[1] + c[1] + c[2] + c[2] + c[3] + c[3];
+  if (c.length !== 7) return color;
+  const r = parseInt(c.slice(1, 3), 16);
+  const g = parseInt(c.slice(3, 5), 16);
+  const b = parseInt(c.slice(5, 7), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  if (theme === 'light' && lum > 0.88) return '#334155';
+  if (theme === 'light' && lum > 0.82 && r > 200 && g > 200 && b < 120) return '#92400e'; // pale yellow
+  if (theme === 'dark' && lum < 0.18) return '#e2e8f0';
+  return color;
+}
 
 type MatrixData = {
   championship: any;
@@ -13,6 +30,7 @@ type MatrixData = {
 
 export default function ChampionshipCompare() {
   const { id } = useParams<{ id: string }>();
+  const { theme } = useTheme();
   const [data, setData] = useState<MatrixData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string[]>([]);
@@ -147,28 +165,36 @@ export default function ChampionshipCompare() {
                 <ResponsiveContainer>
                   <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tick={{ fill: 'var(--text-muted)' }} interval={0} angle={-20} textAnchor="end" height={50} />
-                    <YAxis stroke="var(--text-muted)" fontSize={11} allowDecimals={false} />
+                    <XAxis dataKey="name" stroke="var(--border)" fontSize={11} tick={{ fill: 'var(--text-muted)' }} interval={0} angle={-20} textAnchor="end" height={50} />
+                    <YAxis stroke="var(--border)" fontSize={11} tick={{ fill: 'var(--text-muted)' }} allowDecimals={false} />
                     <Tooltip
-                      contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem' }}
+                      contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', color: 'var(--text)' }}
+                      labelStyle={{ color: 'var(--text)' }}
+                      itemStyle={{ color: 'var(--text)' }}
                       formatter={(value: any, name: string, props: any) => {
                         const add = props.payload[`${name}_add`];
                         return [`${value} pts (+${add} this race)`, name];
                       }}
                       labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
                     />
-                    <Legend />
-                    {selectedDrivers.map(d => (
-                      <Line
-                        key={d.id}
-                        type="monotone"
-                        dataKey={d.name}
-                        stroke={d.team_color || '#6366f1'}
-                        strokeWidth={2.5}
-                        dot={{ r: 3, strokeWidth: 1, fill: d.team_color || '#6366f1' }}
-                        activeDot={{ r: 6 }}
-                      />
-                    ))}
+                    <Legend
+                      wrapperStyle={{ color: 'var(--text)', fontSize: '0.8rem' }}
+                      formatter={(value: string) => <span style={{ color: 'var(--text)' }}>{value}</span>}
+                    />
+                    {selectedDrivers.map(d => {
+                      const lineColor = readableTeamColor(d.team_color, theme);
+                      return (
+                        <Line
+                          key={d.id}
+                          type="monotone"
+                          dataKey={d.name}
+                          stroke={lineColor}
+                          strokeWidth={2.5}
+                          dot={{ r: 3, strokeWidth: 1, fill: lineColor, stroke: lineColor }}
+                          activeDot={{ r: 6, fill: lineColor, stroke: 'var(--bg-card)', strokeWidth: 2 }}
+                        />
+                      );
+                    })}
                   </LineChart>
                 </ResponsiveContainer>
               </div>
