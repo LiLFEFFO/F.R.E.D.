@@ -9,22 +9,25 @@ type MatrixData = {
   matrix: Record<string, Record<string, any>>;
 };
 
-const circuitFlagMap: Record<string, string> = {
-  bahrain: '🇧🇭', australia: '🇦🇺', portugal: '🇵🇹', china: '🇨🇳', poland: '🇵🇱',
-  japan: '🇯🇵', canada: '🇨🇦', indonesia: '🇮🇩', britain: '🇬🇧', uk: '🇬🇧', england: '🇬🇧',
-  italy: '🇮🇹', monza: '🇮🇹', imola: '🇮🇹', latvia: '🇱🇻', turkey: '🇹🇷', india: '🇮🇳',
-  belgium: '🇧🇪', spa: '🇧🇪', germany: '🇩🇪', hockenheim: '🇩🇪', nürburg: '🇩🇪',
-  france: '🇫🇷', spain: '🇪🇸', austria: '🇦🇹', hungary: '🇭🇺', netherlands: '🇳🇱',
-  usa: '🇺🇸', mexico: '🇲🇽', brazil: '🇧🇷', abu: '🇦🇪', qatar: '🇶🇦', saudi: '🇸🇦',
-  monaco: '🇲🇨', azerbaijan: '🇦🇿', singapore: '🇸🇬',
+const raceInitialsMap: Record<string, string> = {
+  bahrain: 'BHR', australia: 'AUS', portugal: 'POR', china: 'CHN', poland: 'POL',
+  japan: 'JPN', canada: 'CAN', indonesia: 'INA', britain: 'GBR', uk: 'GBR', england: 'GBR',
+  italy: 'ITA', monza: 'ITA', imola: 'ITA', latvia: 'LAT', turkey: 'TUR', india: 'IND',
+  belgium: 'BEL', spa: 'BEL', germany: 'GER', hockenheim: 'GER', nürburg: 'GER',
+  france: 'FRA', spain: 'ESP', austria: 'AUT', hungary: 'HUN', netherlands: 'NED', dutch: 'NED',
+  usa: 'USA', mexico: 'MEX', brazil: 'BRA', abu: 'ABU', qatar: 'QAT', saudi: 'SAU',
+  monaco: 'MON', azerbaijan: 'AZE', baku: 'AZE', singapore: 'SGP', austin: 'USA',
 };
 
-function flagForCircuit(circuit: string, name: string): string {
+function initialsForRace(circuit: string, name: string): string {
   const hay = `${circuit} ${name}`.toLowerCase();
-  for (const [k, v] of Object.entries(circuitFlagMap)) {
+  for (const [k, v] of Object.entries(raceInitialsMap)) {
     if (hay.includes(k)) return v;
   }
-  return '🏁';
+  // fallback: first 3 letters of name without GP, uppercase
+  const clean = name.replace(/\s*GP\s*/i, '').trim();
+  if (clean.length >= 3) return clean.substring(0, 3).toUpperCase();
+  return clean.substring(0, 2).toUpperCase().padEnd(3, '·');
 }
 
 export default function ResultsMatrix() {
@@ -102,7 +105,7 @@ export default function ResultsMatrix() {
                     <th className="gt-th gt-dif">Dif.</th>
                     {races.map(r => (
                       <th key={r.id} className="gt-th gt-flag" title={`${r.name} — ${r.circuit}`}>
-                        <span className="gt-flag-emoji">{flagForCircuit(r.circuit, r.name)}</span>
+                        <span className="gt-initials">{initialsForRace(r.circuit, r.name)}</span>
                       </th>
                     ))}
                   </tr>
@@ -181,8 +184,8 @@ export default function ResultsMatrix() {
           white-space: nowrap;
         }
         .gt-th.gt-driver, .gt-th.gt-team { text-align: left; padding-left: 10px; }
-        .gt-th.gt-flag { min-width: 38px; font-size: 1.05rem; }
-        .gt-flag-emoji { font-size: 1.05rem; line-height: 1; }
+        .gt-th.gt-flag { min-width: 38px; }
+        .gt-initials { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; color: #e8e8e8; }
         .gt-row { border-bottom: 1px solid #3a0a0a; }
         .gt-row:last-child { border-bottom: none; }
         .gt-cell {
